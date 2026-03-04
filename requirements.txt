@@ -28,16 +28,14 @@ urllib3==2.2.3
 # ── Document parsing ───────────────────────────────────────────────────────────
 pdfplumber==0.11.4
 pandas==2.2.3
-numpy==2.4.2
+numpy==1.26.4
 openpyxl==3.1.5
 xlrd==2.0.1
 pytesseract==0.3.13
 Pillow==11.0.0
 
-# ── NFL data (seed scripts) ────────────────────────────────────────────────────
-nfl_data_py==0.3.3
-pyarrow==23.0.1
-fastparquet==2025.12.0
+# ── NFL data (seed scripts only — not needed by the running app) ───────────────
+# Install separately: pip install -r scripts/requirements-seed.txt
 
 # ── Report export ──────────────────────────────────────────────────────────────
 reportlab==4.2.5

@@ -1,0 +1,9 @@
+# Extra packages only needed for the one-time seed scripts.
+# These conflict with the app's pandas 2.x — install in a separate venv:
+#   python -m venv .seed-venv && source .seed-venv/bin/activate
+#   pip install -r scripts/requirements-seed.txt
+nfl_data_py==0.3.3
+numpy==1.26.4
+pandas==1.5.3
+pyarrow==14.0.2
+fastparquet==2023.10.1
