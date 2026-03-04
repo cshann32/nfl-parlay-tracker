@@ -211,6 +211,9 @@ def index():
     carousel_season = active_season if season_state["state"] == "offseason" else active_season
     season_predictions = get_season_predictions(season_year=carousel_season)
 
+    # Fetch a handful of headlines for the dashboard news strip
+    articles = _fetch_espn_json(limit=6)
+
     logger.info("Dashboard loaded", extra={"user_id": current_user.id,
                                            "season_state": season_state["state"]})
     return render_template(
@@ -223,6 +226,7 @@ def index():
         is_upcoming=is_upcoming,
         season_predictions=season_predictions,
         season_state=season_state,
+        articles=articles,
     )
 
 
