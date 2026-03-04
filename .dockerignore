@@ -1,9 +1,6 @@
-# Environment — NEVER commit this
-.env
-
-# Logs and uploads — runtime data
-logs/
-uploads/
+# Version control
+.git
+.gitignore
 
 # Python
 __pycache__/
@@ -23,18 +20,24 @@ venv/
 .venv/
 env/
 
-# IDE
+# Secrets — never build these into the image
+.env
+
+# Runtime data — mounted as volumes at runtime
+logs/
+uploads/
+
+# Dev tools
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Docker
-# (.dockerignore is intentionally tracked in git)
-
 # macOS
 .DS_Store
 
-# Database dumps
-*.sql
-*.dump
+# Claude
+.claude/
+
+# Docs
+README.md

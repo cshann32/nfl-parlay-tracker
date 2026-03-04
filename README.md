@@ -62,35 +62,79 @@ Live dashboard charts built entirely from your local database:
 git clone https://github.com/cshann32/nfl-parlay-tracker.git
 cd nfl-parlay-tracker
 cp .env.example .env
-# Edit .env — set DATABASE_URL, SECRET_KEY, REDIS_URL
 ```
 
-### 2. Run with Docker
+Open `.env` and set at minimum:
+```
+SECRET_KEY=<any long random string>
+NFL_API_KEY=<your RapidAPI key — optional, ESPN syncs work without it>
+```
+Everything else (database URL, Redis URL) is pre-configured to work with Docker out of the box.
+
+---
+
+### 2. Run with Docker (recommended)
+
+#### Production mode — Gunicorn + Nginx on port 80
 
 ```bash
-docker-compose up --build
+docker-compose up --build -d
 ```
 
-The app will be available at `http://localhost`.
+The app is available at **http://localhost**
+
+#### Development mode — Flask hot-reload on port 5000
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+The app is available at **http://localhost:5000** — file edits reflect immediately without rebuilding.
+
+#### Useful commands
+
+```bash
+# View logs
+docker-compose logs -f app
+
+# Stop everything
+docker-compose down
+
+# Stop and wipe the database volume (full reset)
+docker-compose down -v
+
+# Open a shell inside the app container
+docker-compose exec app sh
+
+# Run a Flask CLI command
+docker-compose exec app flask db upgrade
+```
+
+---
 
 ### 3. Run locally (without Docker)
 
 ```bash
+# Requires: PostgreSQL + Redis running locally
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 flask db upgrade          # run migrations
-python run.py             # start dev server → http://localhost:5000
+python run.py             # dev server → http://localhost:5000
 ```
+
+---
 
 ### 4. Populate data
 
-Log in as admin and go to **Admin → Sync** to run:
-- `espn_teams` — load all 32 NFL teams
-- `espn_roster` — load full rosters with player photos
-- `espn_schedule` — load game schedule and results
-- `espn_news` — load latest headlines
-- `espn_odds` — load current game odds
+Log in, then go to **Admin → Sync** and run these in order:
+1. `espn_teams` — all 32 NFL teams with logos and colors
+2. `espn_roster` — full rosters with player photos and positions
+3. `espn_schedule` — game schedule and final scores
+4. `espn_news` — latest NFL headlines
+5. `espn_odds` — current game odds
+
+All ESPN syncs are **free** — no API key required.
 
 ---
 

@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# System dependencies — tesseract for OCR, libpq for postgres, postgresql-client for pg_isready
+# System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
@@ -11,25 +11,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Python dependencies first (layer cache)
+# Install Python deps first — separate layer so code changes don't bust cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
 
-# Create runtime directories
-RUN mkdir -p /app/logs /app/uploads
+# Runtime directories + non-root user
+RUN mkdir -p /app/logs /app/uploads \
+    && useradd -m -u 1000 appuser \
+    && chown -R appuser:appuser /app \
+    && chmod +x /app/entrypoint.sh
 
-# Non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 5000
 
-COPY --chown=appuser:appuser entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
 ENTRYPOINT ["/app/entrypoint.sh"]
-# Dev: flask dev server | Prod: override CMD to use gunicorn
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
+
+# Production: Gunicorn with 2 workers, 2 threads each
+# Dev override: ["flask", "run", "--host=0.0.0.0", "--port=5000"]
+CMD ["gunicorn", \
+     "--bind", "0.0.0.0:5000", \
+     "--workers", "2", \
+     "--threads", "2", \
+     "--timeout", "120", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "run:app"]

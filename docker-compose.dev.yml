@@ -1,0 +1,33 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Development overrides — use on top of docker-compose.yml:
+#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# What this adds/changes vs production:
+#   • Flask dev server (hot-reload) instead of Gunicorn
+#   • Source code mounted live — edit files without rebuilding
+#   • App exposed directly on :5000 (no Nginx needed)
+#   • Nginx disabled
+#   • DEBUG=true, LOG_LEVEL=DEBUG
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  app:
+    command: ["flask", "run", "--host=0.0.0.0", "--port=5000", "--debug"]
+    environment:
+      FLASK_ENV: development
+      FLASK_DEBUG: "1"
+      LOG_LEVEL: DEBUG
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app                  # live code reload — edits reflect instantly
+      - /app/.venv              # don't mount host venv into container
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+
+  nginx:
+    profiles:
+      - disabled                # effectively disables nginx in dev
