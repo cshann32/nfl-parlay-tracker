@@ -17,6 +17,25 @@ from app.utils.helpers import calculate_parlay_payout, roi
 logger = logging.getLogger("nfl.parlays")
 
 
+# ── Private helpers ────────────────────────────────────────────────────────────
+
+def _resolved_parlays(user_id: int):
+    """Resolved (non-pending) parlays for a user, unordered."""
+    return Parlay.query.filter(
+        Parlay.user_id == user_id,
+        Parlay.status != ParlayStatus.PENDING,
+    ).all()
+
+
+def _resolved_parlays_dated(user_id: int):
+    """Resolved parlays that have a bet_date, ordered chronologically."""
+    return Parlay.query.filter(
+        Parlay.user_id == user_id,
+        Parlay.status != ParlayStatus.PENDING,
+        Parlay.bet_date.isnot(None),
+    ).order_by(Parlay.bet_date).all()
+
+
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
 def create_parlay(user_id: int, data: dict) -> Parlay:
@@ -153,11 +172,7 @@ def get_analytics(user_id: int) -> dict:
 
 def get_pl_over_time(user_id: int) -> list[dict]:
     """Return cumulative P&L data points for charting."""
-    parlays = Parlay.query.filter(
-        Parlay.user_id == user_id,
-        Parlay.status != ParlayStatus.PENDING,
-        Parlay.bet_date.isnot(None),
-    ).order_by(Parlay.bet_date).all()
+    parlays = _resolved_parlays_dated(user_id)
 
     cumulative = 0.0
     data = []
@@ -209,11 +224,7 @@ def get_bet_type_breakdown(user_id: int) -> list[dict]:
 def get_win_rate_by_week(user_id: int) -> list[dict]:
     """Return win rate per week for charting."""
     results: dict[str, dict] = {}
-    parlays = Parlay.query.filter(
-        Parlay.user_id == user_id,
-        Parlay.status != ParlayStatus.PENDING,
-        Parlay.bet_date.isnot(None),
-    ).order_by(Parlay.bet_date).all()
+    parlays = _resolved_parlays_dated(user_id)
 
     for p in parlays:
         week_key = p.bet_date.strftime("%Y-W%W") if p.bet_date else "Unknown"
@@ -231,11 +242,7 @@ def get_win_rate_by_week(user_id: int) -> list[dict]:
 
 def get_monthly_pl(user_id: int) -> list[dict]:
     """Return P&L grouped by calendar month for charting."""
-    parlays = Parlay.query.filter(
-        Parlay.user_id == user_id,
-        Parlay.status != ParlayStatus.PENDING,
-        Parlay.bet_date.isnot(None),
-    ).order_by(Parlay.bet_date).all()
+    parlays = _resolved_parlays_dated(user_id)
 
     monthly: dict[str, dict] = {}
     for p in parlays:
@@ -263,10 +270,7 @@ def get_monthly_pl(user_id: int) -> list[dict]:
 
 def get_sportsbook_breakdown(user_id: int) -> list[dict]:
     """Return win/loss/ROI grouped by sportsbook."""
-    parlays = Parlay.query.filter(
-        Parlay.user_id == user_id,
-        Parlay.status != ParlayStatus.PENDING,
-    ).all()
+    parlays = _resolved_parlays(user_id)
 
     books: dict[str, dict] = {}
     for p in parlays:
@@ -294,10 +298,7 @@ def get_sportsbook_breakdown(user_id: int) -> list[dict]:
 
 def get_leg_count_breakdown(user_id: int) -> list[dict]:
     """Return win rate, ROI and avg payout grouped by number of legs (2-leg, 3-leg, etc.)."""
-    parlays = Parlay.query.filter(
-        Parlay.user_id == user_id,
-        Parlay.status != ParlayStatus.PENDING,
-    ).all()
+    parlays = _resolved_parlays(user_id)
 
     by_legs: dict[int, dict] = {}
     for p in parlays:

@@ -38,13 +38,13 @@ def player_detail(player_id):
         season_year = requested_year
         stats = stats_service.get_player_stats(player_id, season_year=season_year)
     else:
-        # Default to 2025; if no stats exist, fall back to 2024
-        stats = stats_service.get_player_stats(player_id, season_year=2025)
+        from app.config import CURRENT_SEASON
+        stats = stats_service.get_player_stats(player_id, season_year=CURRENT_SEASON)
         if stats:
-            season_year = 2025
+            season_year = CURRENT_SEASON
         else:
-            season_year = 2024
-            stats = stats_service.get_player_stats(player_id, season_year=2024)
+            season_year = CURRENT_SEASON - 1
+            stats = stats_service.get_player_stats(player_id, season_year=season_year)
     gamelog = stats_service.get_player_gamelog(player_id, season_year=season_year)
     return render_template("stats/player_detail.html", player=player,
                            stats=stats, gamelog=gamelog, season_year=season_year)

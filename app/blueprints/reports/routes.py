@@ -136,7 +136,8 @@ def team_performance():
         .order_by(GameModel.season_year.desc()).limit(5).all()
     ]
     if not seasons:
-        seasons = [2025, 2024]
+        from app.config import CURRENT_SEASON
+        seasons = [CURRENT_SEASON, CURRENT_SEASON - 1]
     if not season:
         season = seasons[0]
     teams = Team.query.order_by(Team.name).all()

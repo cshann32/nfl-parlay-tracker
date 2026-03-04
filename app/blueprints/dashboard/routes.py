@@ -36,7 +36,7 @@ def _fetch_espn_json(limit: int = 25) -> list[dict]:
             try:
                 from datetime import datetime, timezone
                 published_at = datetime.fromisoformat(pub.replace("Z", "+00:00")) if pub else None
-            except Exception:
+            except (ValueError, TypeError):
                 published_at = None
             items.append({
                 "title":        a.get("headline") or "",

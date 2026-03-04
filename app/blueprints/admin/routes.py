@@ -6,6 +6,7 @@ from flask import render_template, request, redirect, url_for, flash, jsonify, c
 from flask_login import login_required, current_user
 from app.blueprints.admin import admin_bp
 from app.utils.decorators import admin_required
+from apscheduler.jobstores.base import JobLookupError as APJobLookupError
 from app.extensions import db, scheduler
 from app.models.user import User, UserRole
 from app.models.sync_log import SyncLog, SyncStatus
@@ -238,8 +239,8 @@ def toggle_scheduler():
             scheduler.start()
         try:
             scheduler.remove_job("nfl_full_sync")
-        except Exception:
-            pass
+        except APJobLookupError:
+            pass  # job didn't exist yet — that's fine
         scheduler.add_job(func=lambda: run_full_sync(app), trigger="interval",
                           hours=interval, id="nfl_full_sync", replace_existing=True)
         flash(f"Scheduler started — syncing every {interval}h.", "success")
@@ -247,8 +248,8 @@ def toggle_scheduler():
     else:
         try:
             scheduler.remove_job("nfl_full_sync")
-        except Exception:
-            pass
+        except APJobLookupError:
+            pass  # job didn't exist yet — that's fine
         flash("Scheduler stopped.", "info")
         logger.info("Scheduler disabled")
 

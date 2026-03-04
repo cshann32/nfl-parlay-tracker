@@ -7,6 +7,8 @@ from app.extensions import db
 from app.models.user import User, UserRole
 from app.exceptions import ValidationException
 
+logger = logging.getLogger("nfl.auth")
+
 _LOGIN_LIMIT = 10       # max attempts
 _LOGIN_WINDOW = 900     # 15 minutes in seconds
 
@@ -22,7 +24,8 @@ def _is_rate_limited(ip: str) -> bool:
         r = get_redis()
         attempts = r.get(_login_rate_key(ip))
         return attempts is not None and int(attempts) >= _LOGIN_LIMIT
-    except Exception:
+    except Exception as exc:
+        logger.debug("Redis unavailable for rate-limit check — failing open: %s", exc)
         return False  # fail open — don't block users if Redis is unavailable
 
 
@@ -35,18 +38,16 @@ def _record_failed_attempt(ip: str) -> None:
         pipe.incr(key)
         pipe.expire(key, _LOGIN_WINDOW)
         pipe.execute()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Redis unavailable — could not record failed attempt: %s", exc)
 
 
 def _clear_attempts(ip: str) -> None:
     try:
         from app.extensions import get_redis
         get_redis().delete(_login_rate_key(ip))
-    except Exception:
-        pass
-
-logger = logging.getLogger("nfl.auth")
+    except Exception as exc:
+        logger.debug("Redis unavailable — could not clear login attempts: %s", exc)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])

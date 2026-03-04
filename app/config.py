@@ -5,6 +5,9 @@ All sensitive values are read from environment variables — never hardcoded.
 import os
 
 
+CURRENT_SEASON: int = int(os.environ.get("CURRENT_SEASON", "2025"))
+
+
 class BaseConfig:
     # ── Core ──────────────────────────────────────────────────────────────────
     SECRET_KEY: str = os.environ.get("SECRET_KEY", "dev-secret-change-me")
