@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}New Report — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+  <a href="{{ url_for('reports.index') }}" class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1">
+    <i class="bi bi-arrow-left"></i> Reports
+  </a>
+</div>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <div style="width:40px;height:40px;border-radius:10px;background:rgba(105,190,40,.12);
+              border:1px solid rgba(105,190,40,.25);display:flex;align-items:center;justify-content:center;">
+    <i class="bi bi-file-earmark-bar-graph" style="color:#69BE28;font-size:1.1rem;"></i>
+  </div>
+  <h2 class="fw-black mb-0" style="font-size:1.4rem;letter-spacing:-.02em;">New Report</h2>
+</div>
+
+<div class="rounded-3 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="px-4 py-3" style="border-bottom:1px solid rgba(255,255,255,.06);">
+    <span class="fw-semibold text-white" style="font-size:.88rem;">Report Configuration</span>
+  </div>
+  <form method="POST" class="p-4">
+    <div class="row g-3">
+
+      <div class="col-md-6">
+        <label class="d-block mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);">Report Name</label>
+        <input type="text" name="name" required placeholder="My Custom Report"
+               class="form-control"
+               style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                      color:#fff;border-radius:8px;font-size:.88rem;padding:.6rem .9rem;">
+      </div>
+
+      <div class="col-md-6">
+        <label class="d-block mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);">Report Type</label>
+        <select name="type" id="reportType" onchange="updateFilters()"
+                class="form-select"
+                style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                       color:#fff;border-radius:8px;font-size:.88rem;padding:.6rem .9rem;">
+          <option value="parlays">Parlay History</option>
+          <option value="player_stats">Player Statistics</option>
+          <option value="team_stats">Team Statistics</option>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="d-block mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);">Date From</label>
+        <input type="date" name="date_from"
+               class="form-control"
+               style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                      color:#fff;border-radius:8px;font-size:.88rem;padding:.6rem .9rem;">
+      </div>
+
+      <div class="col-md-3">
+        <label class="d-block mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);">Date To</label>
+        <input type="date" name="date_to"
+               class="form-control"
+               style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                      color:#fff;border-radius:8px;font-size:.88rem;padding:.6rem .9rem;">
+      </div>
+
+      <div class="col-md-3 parlay-filter">
+        <label class="d-block mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);">Status</label>
+        <select name="status" class="form-select"
+                style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                       color:#fff;border-radius:8px;font-size:.88rem;padding:.6rem .9rem;">
+          <option value="">All</option>
+          {% for s in ['pending','won','lost','push'] %}
+          <option value="{{ s }}">{{ s | title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-3 parlay-filter">
+        <label class="d-block mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);">Sportsbook</label>
+        <input type="text" name="sportsbook" placeholder="e.g. DraftKings"
+               class="form-control"
+               style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                      color:#fff;border-radius:8px;font-size:.88rem;padding:.6rem .9rem;">
+      </div>
+
+      <div class="col-md-4 stats-filter" style="display:none;">
+        <label class="d-block mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);">Team</label>
+        <select name="team_id" class="form-select"
+                style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                       color:#fff;border-radius:8px;font-size:.88rem;padding:.6rem .9rem;">
+          <option value="">All Teams</option>
+          {% for t in teams %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-4 stats-filter player-filter" style="display:none;">
+        <label class="d-block mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);">Player</label>
+        <select name="player_id" class="form-select"
+                style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                       color:#fff;border-radius:8px;font-size:.88rem;padding:.6rem .9rem;">
+          <option value="">All Players</option>
+          {% for p in players %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-3 stats-filter" style="display:none;">
+        <label class="d-block mb-1" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);">Season Year</label>
+        <input type="number" name="season_year" placeholder="2024"
+               class="form-control"
+               style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                      color:#fff;border-radius:8px;font-size:.88rem;padding:.6rem .9rem;">
+      </div>
+
+      <div class="col-12 mt-2 d-flex gap-2">
+        <button type="submit"
+                class="btn"
+                style="background:#69BE28;color:#001a0a;font-weight:700;font-size:.88rem;
+                       padding:.55rem 1.5rem;border-radius:8px;border:none;">
+          <i class="bi bi-save me-1"></i>Save Report
+        </button>
+        <a href="{{ url_for('reports.index') }}"
+           class="btn btn-outline-secondary" style="font-size:.88rem;padding:.55rem 1.2rem;">
+          Cancel
+        </a>
+      </div>
+
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+.form-control::placeholder { color: rgba(255,255,255,.25); }
+.form-control:focus, .form-select:focus {
+  border-color: rgba(105,190,40,.4) !important;
+  box-shadow: 0 0 0 3px rgba(105,190,40,.08) !important;
+  background: rgba(255,255,255,.07) !important;
+}
+.form-select option { background: #0d1117; color: #fff; }
+</style>
+<script>
+function updateFilters() {
+  const type = document.getElementById('reportType').value;
+  document.querySelectorAll('.parlay-filter').forEach(e => e.style.display = type === 'parlays' ? '' : 'none');
+  document.querySelectorAll('.stats-filter').forEach(e => e.style.display = type !== 'parlays' ? '' : 'none');
+  document.querySelectorAll('.player-filter').forEach(e => e.style.display = type === 'player_stats' ? '' : 'none');
+}
+updateFilters();
+</script>
+{% endblock %}

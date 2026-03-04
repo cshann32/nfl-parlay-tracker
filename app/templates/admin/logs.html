@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Log Files — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+  <a href="{{ url_for('admin.index') }}" class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1">
+    <i class="bi bi-arrow-left"></i> Admin
+  </a>
+</div>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <div style="width:40px;height:40px;border-radius:10px;background:rgba(251,146,60,.12);
+              border:1px solid rgba(251,146,60,.25);display:flex;align-items:center;justify-content:center;">
+    <i class="bi bi-journal-text" style="color:#fb923c;font-size:1.1rem;"></i>
+  </div>
+  <div>
+    <h2 class="fw-black mb-0" style="font-size:1.4rem;letter-spacing:-.02em;">Log Files</h2>
+    <div style="font-size:.75rem;color:rgba(255,255,255,.35);">{{ log_files | length }} file{{ 's' if log_files | length != 1 }}</div>
+  </div>
+</div>
+
+{% if log_files %}
+<div class="row g-3">
+  {% for f in log_files %}
+  <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+    <a href="{{ url_for('admin.view_log', log_file=f) }}"
+       class="text-decoration-none d-block log-card rounded-3 p-3"
+       style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="d-flex align-items-center gap-3">
+        <div style="width:38px;height:38px;border-radius:8px;background:rgba(251,146,60,.1);
+                    border:1px solid rgba(251,146,60,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="bi bi-file-text" style="color:#fb923c;font-size:1rem;"></i>
+        </div>
+        <div style="min-width:0;">
+          <div class="fw-semibold text-white" style="font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            {{ f }}
+          </div>
+          <div style="font-size:.7rem;color:rgba(255,255,255,.35);">View log</div>
+        </div>
+        <i class="bi bi-chevron-right ms-auto" style="color:rgba(255,255,255,.2);font-size:.75rem;flex-shrink:0;"></i>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5" style="color:rgba(255,255,255,.25);">
+  <i class="bi bi-journal-x d-block mb-2" style="font-size:2.5rem;"></i>
+  No log files found.
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<style>
+.log-card { transition: background .12s, border-color .12s; }
+.log-card:hover { background: rgba(255,255,255,.05) !important; border-color: rgba(251,146,60,.3) !important; }
+</style>
+{% endblock %}

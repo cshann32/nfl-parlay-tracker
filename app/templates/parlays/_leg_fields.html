@@ -1,0 +1,62 @@
+{% set l = leg %}
+{% set i = idx %}
+<div class="d-flex align-items-center justify-content-between mb-1">
+  <span class="leg-num">LEG {{ i + 1 }}</span>
+  <button type="button" class="btn btn-sm"
+          style="color:rgba(248,113,113,.7);border:1px solid rgba(248,113,113,.2);border-radius:5px;font-size:.72rem;padding:.15rem .45rem;"
+          onclick="this.closest('.leg-row').remove()">
+    <i class="bi bi-trash"></i>
+  </button>
+</div>
+<div class="row g-1 align-items-start">
+  <div class="col-12 col-sm-5">
+    <div class="pf-label">Pick</div>
+    <input type="text" name="legs[{{ i }}][pick]" class="form-control pf-input form-control-sm" required
+           value="{{ l.pick if l else '' }}" placeholder="e.g. Chiefs -3.5">
+  </div>
+  <div class="col-5 col-sm-3">
+    <div class="pf-label">Type</div>
+    <select name="legs[{{ i }}][leg_type]" class="form-select pf-input form-select-sm"
+            onchange="onTypeChange(this, {{ i }})">
+      {% for t in ['spread','moneyline','total','player_prop','team_prop'] %}
+      <option value="{{ t }}" {{ 'selected' if l and l.leg_type.value == t }}>{{ t|replace('_',' ')|title }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-4 col-sm-2">
+    <div class="pf-label">Odds</div>
+    <input type="number" name="legs[{{ i }}][odds]" class="form-control pf-input form-control-sm"
+           value="{{ l.odds if l else '' }}" placeholder="-110">
+  </div>
+  <div class="col-3 col-sm-2">
+    <div class="pf-label">Game</div>
+    <select name="legs[{{ i }}][game_id]" class="form-select pf-input form-select-sm">
+      <option value="">—</option>
+      {% for g in games %}
+      <option value="{{ g.id }}" {{ 'selected' if l and l.game_id == g.id }}>
+        {{ g.away_team.abbreviation if g.away_team else '?' }}@{{ g.home_team.abbreviation if g.home_team else '?' }} W{{ g.week }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+{# Player row — shown when type is player_prop #}
+<div class="player-prop-row mt-1" id="playerRow_{{ i }}"
+     style="{{ '' if (l and l.leg_type.value == 'player_prop') else 'display:none;' }}">
+  <div class="pf-label mt-1">Player</div>
+  <div class="position-relative">
+    <input type="text" class="form-control pf-input form-control-sm player-search-input"
+           id="playerSearch_{{ i }}"
+           placeholder="Search player…"
+           autocomplete="off"
+           oninput="onPlayerSearch(this, {{ i }})"
+           value="{{ l.player.name if l and l.player else '' }}">
+    <input type="hidden" name="legs[{{ i }}][player_id]"
+           id="playerHidden_{{ i }}"
+           value="{{ l.player_id if l else '' }}">
+    <div class="player-suggest" id="playerSuggest_{{ i }}"></div>
+  </div>
+  <div class="stat-ctx-panel" id="statCtx_{{ i }}"
+       style="{{ '' if (l and l.player_id) else 'display:none;' }}"></div>
+</div>

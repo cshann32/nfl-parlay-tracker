@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Stats — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+  <i class="bi bi-bar-chart-fill" style="font-size:1.3rem;color:#69BE28;"></i>
+  <h4 class="fw-bold mb-0">NFL Stats</h4>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-sm-6 col-lg-3">
+    <a href="{{ url_for('stats.leaders') }}" class="report-card text-decoration-none d-block">
+      <div class="rc-icon" style="background:rgba(250,204,21,.1);color:#facc15;">
+        <i class="bi bi-trophy"></i>
+      </div>
+      <div class="rc-title">Stat Leaders</div>
+      <div class="rc-desc">Top players by passing, rushing, receiving, and defense</div>
+      <div class="rc-tag">Leaderboard</div>
+    </a>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-3">
+    <a href="{{ url_for('stats.players') }}" class="report-card text-decoration-none d-block">
+      <div class="rc-icon" style="background:rgba(96,165,250,.1);color:#60a5fa;">
+        <i class="bi bi-person-lines-fill"></i>
+      </div>
+      <div class="rc-title">Players</div>
+      <div class="rc-desc">Browse all NFL players by team, position, and stats</div>
+      <div class="rc-tag">Roster</div>
+    </a>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-3">
+    <a href="{{ url_for('stats.teams') }}" class="report-card text-decoration-none d-block">
+      <div class="rc-icon" style="background:rgba(105,190,40,.1);color:#69BE28;">
+        <i class="bi bi-shield-fill"></i>
+      </div>
+      <div class="rc-title">Teams</div>
+      <div class="rc-desc">All 32 NFL teams — standings, stats, and roster</div>
+      <div class="rc-tag">32 Teams</div>
+    </a>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-3">
+    <a href="{{ url_for('stats.prop_analyzer') }}" class="report-card text-decoration-none d-block"
+       style="border-color:rgba(105,190,40,.25);">
+      <div class="rc-icon" style="background:rgba(105,190,40,.15);color:#69BE28;">
+        <i class="bi bi-graph-up-arrow"></i>
+      </div>
+      <div class="rc-title" style="color:#69BE28;">Prop Analyzer</div>
+      <div class="rc-desc">Over/under hit rates by player and prop line threshold</div>
+      <div class="rc-tag">Props</div>
+    </a>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.report-card {
+  display: block;
+  background: #111820;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  padding: 20px;
+  transition: border-color .18s, transform .18s, box-shadow .18s;
+  height: 100%;
+}
+.report-card:hover {
+  border-color: rgba(105,190,40,.45);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+}
+.rc-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  margin-bottom: 14px;
+}
+.rc-title {
+  font-family: 'Barlow Condensed', 'Segoe UI', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 6px;
+  letter-spacing: .02em;
+}
+.rc-desc {
+  font-size: .78rem;
+  color: rgba(255,255,255,.4);
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+.rc-tag {
+  display: inline-block;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.3);
+  background: rgba(255,255,255,.06);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+</style>
+{% endblock %}

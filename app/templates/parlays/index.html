@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Parlays — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="bi bi-cash-stack me-2" style="color:#ffc107;"></i>Parlays</h4>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      {{ analytics.total }} total · {{ analytics.won }}W – {{ analytics.lost }}L
+    </div>
+  </div>
+  <a href="{{ url_for('parlays.create') }}" class="btn btn-sm btn-warning">
+    <i class="bi bi-plus-circle me-1"></i>New Parlay
+  </a>
+</div>
+
+{# ── KPI cards ── #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Win Rate</div>
+      <div class="kpi-val" style="color:#69BE28;">{{ analytics.win_rate }}%</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Net P&amp;L</div>
+      <div class="kpi-val" style="color:{% if analytics.net_pl >= 0 %}#4ade80{% else %}#f87171{% endif %};">
+        {% if analytics.net_pl >= 0 %}+{% endif %}${{ "%.2f"|format(analytics.net_pl|abs) }}
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Total Bets</div>
+      <div class="kpi-val">{{ analytics.total }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Wagered</div>
+      <div class="kpi-val">${{ "%.0f"|format(analytics.total_wagered) }}</div>
+    </div>
+  </div>
+</div>
+
+{# ── Status filters ── #}
+<div class="d-flex gap-2 flex-wrap mb-4">
+  <a href="{{ url_for('parlays.index') }}"
+     class="tab-pill {% if not current_status %}active{% endif %}">All</a>
+  <a href="{{ url_for('parlays.index', status='pending') }}"
+     class="tab-pill {% if current_status == 'pending' %}active{% endif %}">Pending</a>
+  <a href="{{ url_for('parlays.index', status='won') }}"
+     class="tab-pill {% if current_status == 'won' %}active{% endif %}">Won</a>
+  <a href="{{ url_for('parlays.index', status='lost') }}"
+     class="tab-pill {% if current_status == 'lost' %}active{% endif %}">Lost</a>
+  <a href="{{ url_for('parlays.index', status='push') }}"
+     class="tab-pill {% if current_status == 'push' %}active{% endif %}">Push</a>
+</div>
+
+{# ── Table ── #}
+<div class="rounded-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);overflow:hidden;">
+  <div style="overflow-x:auto;">
+    <table class="table mb-0" id="parlayTable" style="color:#e2e8f0;font-size:.84rem;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.08);">
+          <th class="ps-3 py-2">Date</th>
+          <th class="py-2">Name</th>
+          <th class="py-2">Book</th>
+          <th class="py-2 text-center">Legs</th>
+          <th class="py-2 text-end">Bet</th>
+          <th class="py-2 text-end">Potential</th>
+          <th class="py-2 text-end">P&amp;L</th>
+          <th class="py-2">Status</th>
+          <th class="pe-3 py-2"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pagination.items %}
+        {% set sv = p.status.value %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s;" class="parlay-row">
+          <td class="ps-3 py-2" style="color:rgba(255,255,255,.45);white-space:nowrap;">
+            {{ p.bet_date.strftime('%m/%d/%y') if p.bet_date else '—' }}
+          </td>
+          <td class="py-2 fw-semibold">
+            <a href="{{ url_for('parlays.detail', parlay_id=p.id) }}"
+               style="color:#e2e8f0;text-decoration:none;">
+              {{ p.name or ('Parlay #' + p.id|string) }}
+            </a>
+          </td>
+          <td class="py-2" style="color:rgba(255,255,255,.5);">{{ p.sportsbook or '—' }}</td>
+          <td class="py-2 text-center">
+            <span style="font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:4px;
+                         background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);">
+              {{ p.leg_count }}
+            </span>
+          </td>
+          <td class="py-2 text-end">${{ "%.2f"|format(p.bet_amount) }}</td>
+          <td class="py-2 text-end" style="color:rgba(255,255,255,.45);">${{ "%.2f"|format(p.potential_payout or 0) }}</td>
+          <td class="py-2 text-end fw-bold"
+              style="color:{% if p.profit_loss > 0 %}#4ade80{% elif p.profit_loss < 0 %}#f87171{% else %}#adb5bd{% endif %};">
+            {% if p.profit_loss > 0 %}+{% endif %}${{ "%.2f"|format(p.profit_loss|abs) }}
+          </td>
+          <td class="py-2">
+            <span class="status-badge status-{{ sv }}">{{ sv|upper }}</span>
+          </td>
+          <td class="pe-3 py-2 text-end">
+            <a href="{{ url_for('parlays.detail', parlay_id=p.id) }}"
+               class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:3px 10px;">
+              View
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" class="text-center py-5" style="color:rgba(255,255,255,.25);">
+            <i class="bi bi-inbox d-block mb-2" style="font-size:2.2rem;opacity:.3;"></i>
+            No parlays found.
+            <a href="{{ url_for('parlays.create') }}" style="color:#69BE28;">Create one!</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Pagination ── #}
+{% if pagination.pages > 1 %}
+<div class="d-flex justify-content-center align-items-center gap-2 mt-4">
+  {% if pagination.has_prev %}
+  <a href="{{ url_for('parlays.index', page=pagination.prev_num, status=current_status) }}"
+     class="btn btn-sm btn-outline-secondary px-3">← Prev</a>
+  {% endif %}
+  <span style="font-size:.78rem;color:rgba(255,255,255,.4);">
+    {{ pagination.page }} of {{ pagination.pages }}
+  </span>
+  {% if pagination.has_next %}
+  <a href="{{ url_for('parlays.index', page=pagination.next_num, status=current_status) }}"
+     class="btn btn-sm btn-outline-secondary px-3">Next →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.kpi-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+}
+.kpi-lbl {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+  margin-bottom: 4px;
+}
+.kpi-val {
+  font-family: 'Bebas Neue','Barlow Condensed', sans-serif;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+.status-badge {
+  display: inline-block;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.status-won     { background: rgba(105,190,40,.15); color: #69BE28; }
+.status-lost    { background: rgba(248,113,113,.15); color: #f87171; }
+.status-push    { background: rgba(250,204,21,.12); color: #facc15; }
+.status-pending { background: rgba(255,255,255,.08); color: rgba(255,255,255,.5); }
+.status-partial { background: rgba(96,165,250,.12); color: #60a5fa; }
+
+#parlayTable thead th {
+  font-size: .68rem !important;
+  font-weight: 700 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.35) !important;
+  border: none !important;
+  background: rgba(0,0,0,.2);
+}
+.parlay-row:hover td { background: rgba(255,255,255,.025) !important; }
+
+/* DataTables overrides for dark table */
+#parlayTable_wrapper .dataTables_length select,
+#parlayTable_wrapper .dataTables_filter input {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #e2e8f0;
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+#parlayTable_wrapper .dataTables_info,
+#parlayTable_wrapper .dataTables_paginate { color: rgba(255,255,255,.4); font-size: .78rem; }
+#parlayTable_wrapper .paginate_button { color: rgba(255,255,255,.5) !important; border: none !important; background: none !important; }
+#parlayTable_wrapper .paginate_button.current { background: rgba(105,190,40,.15) !important; color: #69BE28 !important; border-radius: 4px; }
+</style>
+<script>
+$(document).ready(function() {
+  {% if pagination.items %}
+  $('#parlayTable').DataTable({
+    paging: false,
+    searching: true,
+    info: false,
+    language: { search: 'Filter:' },
+    columnDefs: [{ targets: [4,5,6], className: 'dt-right' }],
+  });
+  {% endif %}
+});
+</script>
+{% endblock %}

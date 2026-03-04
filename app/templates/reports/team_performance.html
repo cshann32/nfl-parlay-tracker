@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}Team Performance{% if team %} — {{ team.abbreviation }}{% endif %} — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0">
+      <i class="bi bi-shield-fill me-2" style="color:#69BE28;"></i>Team Performance Dashboard
+    </h4>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      Full season breakdown — record, scoring trends, game log
+    </div>
+  </div>
+  <a href="{{ url_for('reports.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Reports
+  </a>
+</div>
+
+{# ── Selector bar ── #}
+<form id="tp-form" class="rounded-3 p-3 mb-4 d-flex flex-wrap align-items-end gap-3"
+      style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div style="flex:1;min-width:180px;">
+    <label class="tp-lbl d-block mb-1">Team</label>
+    <select id="tp-team-sel" name="team_id" class="tp-select" onchange="this.form.submit()">
+      <option value="">Select team…</option>
+      {% for t in teams %}
+      <option value="{{ t.id }}" {% if team_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="tp-lbl d-block mb-1">Season</label>
+    <div class="d-flex gap-1" id="tp-season-row">
+      {% for s in seasons %}
+      <button type="submit" name="season" value="{{ s }}"
+              class="pill-btn {% if s == season %}active{% endif %}">{{ s }}</button>
+      {% else %}
+      <button type="submit" name="season" value="2025" class="pill-btn active">2025</button>
+      <button type="submit" name="season" value="2024" class="pill-btn">2024</button>
+      {% endfor %}
+    </div>
+  </div>
+</form>
+
+{% if not team %}
+<div class="text-center py-5" style="color:rgba(255,255,255,.3);font-size:.88rem;">
+  <i class="bi bi-shield d-block mb-2" style="font-size:3rem;opacity:.2;"></i>
+  Select a team above to view their season breakdown.
+</div>
+{% else %}
+
+{# ── Team hero header (loaded by JS) ── #}
+<div class="rounded-3 p-4 mb-4" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="d-flex align-items-center gap-4 flex-wrap">
+    {% if team.logo_url %}
+    <img src="{{ team.logo_url }}" alt="{{ team.abbreviation }}" style="width:72px;height:72px;object-fit:contain;">
+    {% else %}
+    <div style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.06);
+                display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1.4rem;color:#fff;">
+      {{ team.abbreviation or '?' }}
+    </div>
+    {% endif %}
+    <div>
+      <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+                  color:{{ team.primary_color or '#69BE28' }};">
+        {{ team.conference or '' }} {{ team.division or '' }}
+      </div>
+      <div class="fw-black" style="font-size:1.8rem;letter-spacing:-.02em;">{{ team.name }}</div>
+      <div style="font-size:.8rem;color:rgba(255,255,255,.4);">{{ season }} Season</div>
+    </div>
+
+    {# Record badge (filled by JS) #}
+    <div class="ms-auto text-center" id="tp-record-badge">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:3.5rem;line-height:1;color:#fff;" id="tp-record">—</div>
+      <div style="font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);">W-L-T</div>
+    </div>
+  </div>
+</div>
+
+{# ── KPI strip ── #}
+<div class="row g-3 mb-4">
+  {% for id, lbl in [('tp-pct','Win Pct'),('tp-ppg','Pts/Game'),('tp-papg','Pts Allowed'),('tp-diff','Point Diff'),('tp-home','Home'),('tp-away','Away')] %}
+  <div class="col-6 col-md-2">
+    <div class="tp-kpi text-center">
+      <div class="tp-kpi-lbl">{{ lbl }}</div>
+      <div class="tp-kpi-val" id="{{ id }}">—</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# ── Scoring chart ── #}
+<div class="rounded-3 p-3 mb-4" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="tp-chart-title">Points Scored vs. Allowed — Week by Week</div>
+  <div id="tp-chart-empty" style="display:none;text-align:center;padding:2.5rem;color:rgba(255,255,255,.3);font-size:.85rem;">
+    <i class="bi bi-bar-chart d-block mb-2" style="font-size:2rem;opacity:.3;"></i>No game data for this season.
+  </div>
+  <canvas id="tpScoreChart" height="180"></canvas>
+</div>
+
+{# ── Stat leaders for this team ── #}
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="rounded-3 p-3 h-100" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="tp-chart-title">Top Passers</div>
+      <div id="tp-passers" style="font-size:.82rem;"></div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="rounded-3 p-3 h-100" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="tp-chart-title">Top Rushers &amp; Receivers</div>
+      <div id="tp-skill" style="font-size:.82rem;"></div>
+    </div>
+  </div>
+</div>
+
+{# ── Game log table ── #}
+<div class="rounded-3 overflow-hidden mb-4" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="px-4 py-3" style="border-bottom:1px solid rgba(255,255,255,.06);">
+    <span class="fw-semibold text-white" style="font-size:.88rem;">Game Log — {{ season }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" style="font-size:.82rem;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.06);">
+          <th class="ps-4 py-2" style="color:rgba(255,255,255,.35);font-size:.67rem;letter-spacing:.08em;text-transform:uppercase;">Wk</th>
+          <th style="color:rgba(255,255,255,.35);font-size:.67rem;letter-spacing:.08em;text-transform:uppercase;">Date</th>
+          <th style="color:rgba(255,255,255,.35);font-size:.67rem;letter-spacing:.08em;text-transform:uppercase;">H/A</th>
+          <th style="color:rgba(255,255,255,.35);font-size:.67rem;letter-spacing:.08em;text-transform:uppercase;">Opponent</th>
+          <th style="color:rgba(255,255,255,.35);font-size:.67rem;letter-spacing:.08em;text-transform:uppercase;text-align:center;">Score</th>
+          <th style="color:rgba(255,255,255,.35);font-size:.67rem;letter-spacing:.08em;text-transform:uppercase;text-align:center;">Result</th>
+        </tr>
+      </thead>
+      <tbody id="tp-game-log">
+        <tr><td colspan="6" class="text-center py-4" style="color:rgba(255,255,255,.3);">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<style>
+.pill-btn {
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.5);padding:3px 12px;border-radius:50px;
+  font-size:.78rem;font-weight:600;cursor:pointer;transition:all .12s;
+}
+.pill-btn:hover:not(.active) { background:rgba(255,255,255,.12);color:#fff; }
+.pill-btn.active { background:#69BE28;border-color:#69BE28;color:#001a0a; }
+.tp-lbl { font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35); }
+.tp-select { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;
+  padding:6px 12px;border-radius:7px;font-size:.84rem;width:100%; }
+.tp-select:focus { outline:none;border-color:#69BE28; }
+.tp-kpi { background:#111820;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px; }
+.tp-kpi-lbl { font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px; }
+.tp-kpi-val { font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:1.6rem;line-height:1;color:#fff; }
+.tp-chart-title { font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:10px; }
+.ldr-row { display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04); }
+.ldr-row:last-child { border-bottom:none; }
+.ldr-rank { font-size:.68rem;font-weight:700;color:rgba(255,255,255,.3);min-width:16px; }
+.ldr-name { flex:1;color:#e2e8f0;font-weight:600;font-size:.82rem; }
+.ldr-val { font-weight:700;font-size:.86rem;color:#fff;min-width:40px;text-align:right; }
+.table td, .table th { background:transparent !important;border-color:transparent !important; }
+</style>
+{% if team %}
+<script>
+Chart.defaults.color = '#adb5bd';
+Chart.defaults.font.family = "'Barlow Condensed', 'Segoe UI', sans-serif";
+const DARK = { grid:'rgba(255,255,255,.05)', tt:{bg:'#1a1a2e',border:'#2a2a4a'} };
+function tt() { return { backgroundColor:DARK.tt.bg, borderColor:DARK.tt.border, borderWidth:1, titleColor:'#fff', bodyColor:'#ccc' }; }
+
+const TEAM_COLOR = '{{ team.primary_color or "#69BE28" }}';
+const TEAM_ID    = {{ team_id or 'null' }};
+const SEASON     = {{ season }};
+
+async function loadTeamData() {
+  const url = `/api/games/team-record?team_id=${TEAM_ID}&season=${SEASON}`;
+  const d = await fetch(url).then(r => r.json()).catch(() => null);
+  if (!d || !d.total_games) {
+    document.getElementById('tp-record').textContent = '0-0';
+    ['tp-pct','tp-ppg','tp-papg','tp-diff','tp-home','tp-away'].forEach(id =>
+      document.getElementById(id).textContent = '—'
+    );
+    document.getElementById('tp-chart-empty').style.display = '';
+    document.getElementById('tpScoreChart').style.display = 'none';
+    document.getElementById('tp-game-log').innerHTML =
+      '<tr><td colspan="6" class="text-center py-4" style="color:rgba(255,255,255,.3);">No game results found for this season.</td></tr>';
+    return;
+  }
+
+  // Record
+  const rec = `${d.wins}-${d.losses}${d.ties ? '-' + d.ties : ''}`;
+  document.getElementById('tp-record').textContent = rec;
+
+  // KPIs
+  document.getElementById('tp-pct').textContent  = (d.pct * 100).toFixed(0) + '%';
+  document.getElementById('tp-ppg').textContent  = d.ppg;
+  document.getElementById('tp-papg').textContent = d.papg;
+  const diff = d.diff;
+  const diffEl = document.getElementById('tp-diff');
+  diffEl.textContent = (diff > 0 ? '+' : '') + diff;
+  diffEl.style.color = diff > 0 ? '#69BE28' : diff < 0 ? '#f87171' : '#e2e8f0';
+  document.getElementById('tp-home').textContent = d.home_record;
+  document.getElementById('tp-away').textContent = d.away_record;
+
+  // Scoring chart
+  renderScoreChart(d.games);
+
+  // Game log
+  renderGameLog(d.games);
+}
+
+function renderScoreChart(games) {
+  if (!games.length) {
+    document.getElementById('tp-chart-empty').style.display = '';
+    document.getElementById('tpScoreChart').style.display = 'none';
+    return;
+  }
+  document.getElementById('tp-chart-empty').style.display = 'none';
+  document.getElementById('tpScoreChart').style.display = '';
+
+  const labels = games.map(g => `Wk ${g.week}`);
+  const pf = games.map(g => g.pf);
+  const pa = games.map(g => g.pa);
+
+  new Chart(document.getElementById('tpScoreChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Points Scored', data: pf,
+          backgroundColor: TEAM_COLOR + 'BB', borderColor: TEAM_COLOR, borderWidth: 1, borderRadius: 4 },
+        { label: 'Points Allowed', data: pa,
+          backgroundColor: 'rgba(248,113,113,.45)', borderColor: '#f87171', borderWidth: 1, borderRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#adb5bd', boxWidth: 12, padding: 14 } },
+        tooltip: { ...tt() },
+      },
+      scales: {
+        x: { grid: { color: DARK.grid }, ticks: { color: '#adb5bd' } },
+        y: { grid: { color: DARK.grid }, ticks: { color: '#adb5bd' }, beginAtZero: true },
+      },
+    }
+  });
+}
+
+function renderGameLog(games) {
+  const tbody = document.getElementById('tp-game-log');
+  if (!games.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4" style="color:rgba(255,255,255,.3);">No games found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = games.map(g => {
+    const wl = g.result === 'W' ? '#69BE28' : g.result === 'L' ? '#f87171' : '#adb5bd';
+    return `<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+      <td class="ps-4 py-2 fw-bold" style="color:rgba(255,255,255,.6);">${g.week || '—'}</td>
+      <td style="color:rgba(255,255,255,.5);">${g.date || '—'}</td>
+      <td style="color:rgba(255,255,255,.35);font-size:.75rem;">${g.home ? 'HOME' : 'AWAY'}</td>
+      <td>
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${g.opponent_color};margin-right:5px;"></span>
+        <span style="color:#e2e8f0;font-weight:500;">${g.opponent}</span>
+      </td>
+      <td class="text-center fw-bold" style="color:#e2e8f0;">${g.pf} – ${g.pa}</td>
+      <td class="text-center">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.9rem;color:${wl};">${g.result}</span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadTeamLeaders() {
+  // Top passers from this team
+  const url = `/api/reports/stat-leaders?season=${SEASON}&category=passing&stat_type=YDS&limit=5`;
+  const d = await fetch(url).then(r => r.json()).catch(() => []);
+
+  const passDiv = document.getElementById('tp-passers');
+  if (!d.length) {
+    passDiv.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:.8rem;padding:.5rem 0;">No passing stats found.</div>';
+  } else {
+    passDiv.innerHTML = d.map((p, i) => `
+      <div class="ldr-row">
+        <span class="ldr-rank">${i+1}</span>
+        <div style="flex:1;">
+          <div class="ldr-name">${p.player}</div>
+          <div style="font-size:.65rem;color:rgba(255,255,255,.35);">Passing Yards</div>
+        </div>
+        <span class="ldr-val">${Math.round(p.total).toLocaleString()}</span>
+      </div>`).join('');
+  }
+
+  // Rushing + Receiving leaders
+  const [rush, recv] = await Promise.all([
+    fetch(`/api/reports/stat-leaders?season=${SEASON}&category=rushing&stat_type=YDS&limit=3`).then(r=>r.json()).catch(()=>[]),
+    fetch(`/api/reports/stat-leaders?season=${SEASON}&category=receiving&stat_type=YDS&limit=3`).then(r=>r.json()).catch(()=>[]),
+  ]);
+
+  const skillDiv = document.getElementById('tp-skill');
+  const combined = [
+    ...rush.map(p => ({...p, cat:'Rush'})),
+    ...recv.map(p => ({...p, cat:'Recv'})),
+  ].sort((a,b) => b.total - a.total);
+
+  if (!combined.length) {
+    skillDiv.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:.8rem;padding:.5rem 0;">No rushing/receiving stats found.</div>';
+  } else {
+    skillDiv.innerHTML = combined.map((p, i) => `
+      <div class="ldr-row">
+        <span class="ldr-rank">${i+1}</span>
+        <div style="flex:1;">
+          <div class="ldr-name">${p.player}
+            <span style="font-size:.65rem;color:rgba(255,255,255,.3);margin-left:4px;">${p.cat}</span>
+          </div>
+        </div>
+        <span class="ldr-val">${Math.round(p.total).toLocaleString()}</span>
+      </div>`).join('');
+  }
+}
+
+(async () => {
+  await loadTeamData();
+  await loadTeamLeaders();
+})();
+</script>
+{% endif %}
+{% endblock %}

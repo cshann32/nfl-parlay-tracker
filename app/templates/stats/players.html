@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% block title %}Players{% endblock %}
+{% block content %}
+
+{# ── Header ── #}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+  <div>
+    <h2 class="fw-black mb-0" style="letter-spacing:-.02em;">Players</h2>
+    <div style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      <span id="pl-count">{{ players|length }}</span> players
+      {% if current_team %}— filtered by team{% endif %}
+    </div>
+  </div>
+  {# Team filter (server-side, kept because it reduces payload) #}
+  <form class="d-flex gap-2 align-items-center">
+    <select name="team_id" onchange="this.form.submit()"
+            class="form-select form-select-sm"
+            style="width:140px;background:#111820;border-color:rgba(255,255,255,.15);color:#fff;">
+      <option value="">All Teams</option>
+      {% for t in teams %}
+      <option value="{{ t.id }}" {{ 'selected' if current_team == t.id }}>{{ t.abbreviation }} — {{ t.name }}</option>
+      {% endfor %}
+    </select>
+    {% if current_team %}
+    <a href="{{ url_for('stats.players') }}" class="btn btn-sm btn-outline-secondary">All Teams</a>
+    {% endif %}
+  </form>
+</div>
+
+{# ── Live search ── #}
+<div class="mb-3">
+  <div class="position-relative" style="max-width:340px;">
+    <i class="bi bi-search position-absolute"
+       style="left:12px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.3);font-size:.85rem;pointer-events:none;"></i>
+    <input id="pl-search" type="text" autocomplete="off"
+           placeholder="Search players…"
+           class="form-control form-control-sm"
+           style="padding-left:34px;background:#111820;border-color:rgba(255,255,255,.15);color:#fff;">
+  </div>
+</div>
+
+{# ── Position tabs ── #}
+<div class="d-flex flex-wrap gap-1 mb-4" id="pos-tabs">
+  <button class="pos-tab active" data-group="all">All</button>
+  <button class="pos-tab" data-group="QB">QB</button>
+  <button class="pos-tab" data-group="RB">RB</button>
+  <button class="pos-tab" data-group="WR">WR</button>
+  <button class="pos-tab" data-group="TE">TE</button>
+  <button class="pos-tab" data-group="OL">OL</button>
+  <button class="pos-tab" data-group="DL">DL</button>
+  <button class="pos-tab" data-group="LB">LB</button>
+  <button class="pos-tab" data-group="DB">DB</button>
+  <button class="pos-tab" data-group="K/P">K / P</button>
+</div>
+
+{% if players %}
+
+{# ── Build position groups ── #}
+{#  We render all cards flat; JS handles show/hide and grouping visually  #}
+<div id="pl-sections">
+
+  {# Group positions into canonical buckets #}
+  {% set pos_groups = {
+    'QB':  ['QB'],
+    'RB':  ['RB','FB','HB'],
+    'WR':  ['WR','SWR'],
+    'TE':  ['TE'],
+    'OL':  ['OT','LT','RT','OG','LG','RG','G','C','OL'],
+    'DL':  ['DE','DT','NT','DL','LE','RE'],
+    'LB':  ['LB','ILB','OLB','MLB','WLB','SLB','LOLB','ROLB'],
+    'DB':  ['CB','S','FS','SS','SAF','DB','NCB'],
+    'K/P': ['K','PK','P','LS'],
+  } %}
+
+  {# Build reverse lookup in Jinja: position -> group #}
+  {% set ns = namespace(group_map={}) %}
+  {% for grp, positions in pos_groups.items() %}
+    {% for pos in positions %}
+      {% set _ = ns.group_map.update({pos: grp}) %}
+    {% endfor %}
+  {% endfor %}
+
+  {# Collect players per group #}
+  {% set grp_order = ['QB','RB','WR','TE','OL','DL','LB','DB','K/P'] %}
+
+  {% for grp in grp_order %}
+    {% set grp_players = [] %}
+    {% for p in players %}
+      {% if (p.position or '') in pos_groups[grp] %}
+        {% set _ = grp_players.append(p) %}
+      {% endif %}
+    {% endfor %}
+
+    {% if grp_players %}
+    <div class="pos-section" data-group="{{ grp }}">
+      <div class="pos-section-header">
+        <span class="pos-section-badge">{{ grp }}</span>
+        <span class="pos-section-name">
+          {% if grp == 'QB' %}Quarterbacks
+          {% elif grp == 'RB' %}Running Backs
+          {% elif grp == 'WR' %}Wide Receivers
+          {% elif grp == 'TE' %}Tight Ends
+          {% elif grp == 'OL' %}Offensive Linemen
+          {% elif grp == 'DL' %}Defensive Linemen
+          {% elif grp == 'LB' %}Linebackers
+          {% elif grp == 'DB' %}Defensive Backs
+          {% elif grp == 'K/P' %}Kickers &amp; Punters
+          {% endif %}
+        </span>
+        <span class="pos-section-count" id="cnt-{{ grp }}">{{ grp_players|length }}</span>
+      </div>
+
+      <div class="pl-grid" id="grid-{{ grp }}">
+        {% for p in grp_players %}
+        {% set tc = p.team.primary_color if p.team and p.team.primary_color else '#444' %}
+        <a href="{{ url_for('stats.player_detail', player_id=p.id) }}"
+           class="text-decoration-none player-card"
+           data-name="{{ p.name|lower }}"
+           data-pos="{{ p.position or '' }}"
+           data-team="{{ p.team.abbreviation if p.team else '' }}"
+           data-group="{{ ns.group_map.get(p.position or '', 'other') }}">
+          <div style="height:3px;background:{{ tc }};border-radius:12px 12px 0 0;"></div>
+          <div class="position-relative">
+            {% if p.image_url %}
+            <img src="{{ p.image_url }}" alt="{{ p.name }}"
+                 style="width:100%;height:120px;object-fit:cover;object-position:top center;display:block;">
+            {% else %}
+            <div class="d-flex align-items-center justify-content-center"
+                 style="height:120px;background:rgba(255,255,255,.03);">
+              <i class="bi bi-person-fill" style="font-size:2.6rem;color:rgba(255,255,255,.1);"></i>
+            </div>
+            {% endif %}
+            {% if p.position %}
+            <div class="position-absolute"
+                 style="top:7px;right:6px;background:{{ tc }};color:#000;
+                        font-size:.56rem;font-weight:800;padding:2px 5px;
+                        border-radius:4px;letter-spacing:.05em;">
+              {{ p.position }}
+            </div>
+            {% endif %}
+            {% if p.status and p.status != 'Active' %}
+            <div class="position-absolute"
+                 style="bottom:6px;left:6px;font-size:.56rem;font-weight:700;
+                        padding:2px 5px;border-radius:4px;
+                        background:{% if p.status in ['IR','Out','Injured','PUP','NFI'] %}rgba(220,53,69,.9){% elif p.status in ['Questionable','Doubtful'] %}rgba(255,193,7,.9){% else %}rgba(108,117,125,.8){% endif %};
+                        color:{% if p.status in ['Questionable','Doubtful'] %}#000{% else %}#fff{% endif %};">
+              {{ p.status }}
+            </div>
+            {% endif %}
+          </div>
+          <div class="px-2 pt-2 pb-2">
+            <div class="fw-bold text-white lh-sm mb-1"
+                 style="font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              {{ p.name }}
+            </div>
+            <div style="font-size:.66rem;color:rgba(255,255,255,.38);">
+              {% if p.team %}
+                {% if p.team.logo_url %}
+                <img src="{{ p.team.logo_url }}" style="height:12px;opacity:.65;vertical-align:middle;margin-right:3px;">
+                {% endif %}
+                {{ p.team.abbreviation }}{% if p.jersey_number %}&thinsp;#{{ p.jersey_number }}{% endif %}
+              {% else %}
+                Free Agent
+              {% endif %}
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  {% endfor %}
+
+  {# Catch-all: players with unknown/missing positions #}
+  {% set other_players = [] %}
+  {% for p in players %}
+    {% set known = false %}
+    {% for grp, positions in pos_groups.items() %}
+      {% if (p.position or '') in positions %}{% set known = true %}{% endif %}
+    {% endfor %}
+    {% if not known %}
+      {% set _ = other_players.append(p) %}
+    {% endif %}
+  {% endfor %}
+
+  {% if other_players %}
+  <div class="pos-section" data-group="other">
+    <div class="pos-section-header">
+      <span class="pos-section-badge" style="background:rgba(255,255,255,.12);color:rgba(255,255,255,.5);">?</span>
+      <span class="pos-section-name">Other / No Position</span>
+      <span class="pos-section-count" id="cnt-other">{{ other_players|length }}</span>
+    </div>
+    <div class="pl-grid" id="grid-other">
+      {% for p in other_players %}
+      {% set tc = p.team.primary_color if p.team and p.team.primary_color else '#444' %}
+      <a href="{{ url_for('stats.player_detail', player_id=p.id) }}"
+         class="text-decoration-none player-card"
+         data-name="{{ p.name|lower }}"
+         data-pos="{{ p.position or '' }}"
+         data-team="{{ p.team.abbreviation if p.team else '' }}"
+         data-group="other">
+        <div style="height:3px;background:{{ tc }};border-radius:12px 12px 0 0;"></div>
+        <div class="d-flex align-items-center justify-content-center"
+             style="height:120px;background:rgba(255,255,255,.03);">
+          <i class="bi bi-person-fill" style="font-size:2.6rem;color:rgba(255,255,255,.1);"></i>
+        </div>
+        <div class="px-2 pt-2 pb-2">
+          <div class="fw-bold text-white lh-sm mb-1" style="font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</div>
+          <div style="font-size:.66rem;color:rgba(255,255,255,.38);">{{ p.team.abbreviation if p.team else 'Free Agent' }}</div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+{# ── No-results message ── #}
+<div id="pl-no-results" style="display:none;text-align:center;padding:3rem;color:rgba(255,255,255,.3);">
+  <i class="bi bi-search d-block mb-2" style="font-size:2rem;opacity:.4;"></i>
+  No players match your search.
+</div>
+
+{% else %}
+<div class="text-center py-5" style="color:rgba(255,255,255,.3);">
+  <i class="bi bi-people d-block mb-3" style="font-size:2.5rem;"></i>
+  No players found. Run an <strong>espn_roster</strong> sync first.
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<style>
+/* ── Position tabs ── */
+.pos-tab {
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.5);padding:5px 14px;border-radius:50px;
+  font-size:.78rem;font-weight:700;cursor:pointer;transition:all .12s;
+  letter-spacing:.03em;
+}
+.pos-tab:hover:not(.active) { background:rgba(255,255,255,.12);color:#fff; }
+.pos-tab.active { background:#ffc107;border-color:#ffc107;color:#000; }
+
+/* ── Position section header ── */
+.pos-section { margin-bottom:2rem; }
+.pos-section-header {
+  display:flex;align-items:center;gap:10px;
+  margin-bottom:12px;padding-bottom:8px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.pos-section-badge {
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:38px;height:24px;padding:0 8px;border-radius:6px;
+  background:rgba(255,193,7,.18);color:#ffc107;
+  font-size:.68rem;font-weight:800;letter-spacing:.06em;
+}
+.pos-section-name {
+  font-size:.82rem;font-weight:700;color:rgba(255,255,255,.6);
+  letter-spacing:.02em;
+}
+.pos-section-count {
+  margin-left:auto;font-size:.7rem;color:rgba(255,255,255,.3);
+  font-family:'Barlow Condensed',sans-serif;font-weight:600;
+}
+
+/* ── Player grid ── */
+.pl-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:9px;
+}
+
+/* ── Player card ── */
+.player-card {
+  border-radius:12px;overflow:hidden;background:#111820;
+  border:1px solid rgba(255,255,255,.08);display:block;
+  transition:transform .14s,border-color .14s,box-shadow .14s;
+}
+.player-card:hover {
+  transform:translateY(-3px);
+  border-color:rgba(255,193,7,.4);
+  box-shadow:0 6px 20px rgba(0,0,0,.4);
+}
+.player-card.hidden { display:none !important; }
+
+/* ── Search highlight ── */
+.player-card.search-match .fw-bold { color:#ffc107 !important; }
+</style>
+
+<script>
+const searchInput  = document.getElementById('pl-search');
+const tabs         = document.querySelectorAll('.pos-tab');
+const sections     = document.querySelectorAll('.pos-section');
+const allCards     = document.querySelectorAll('.player-card');
+const noResults    = document.getElementById('pl-no-results');
+const plCount      = document.getElementById('pl-count');
+
+let activeGroup = 'all';
+let searchTerm  = '';
+
+function applyFilters() {
+  let visibleTotal = 0;
+
+  sections.forEach(section => {
+    const grp     = section.dataset.group;
+    const grid    = section.querySelector('.pl-grid');
+    const countEl = section.querySelector('.pos-section-count');
+    const showSection = (activeGroup === 'all' || activeGroup === grp);
+
+    if (!showSection) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+
+    const cards = grid.querySelectorAll('.player-card');
+    let sectionVisible = 0;
+
+    cards.forEach(card => {
+      const nameMatch = !searchTerm || card.dataset.name.includes(searchTerm);
+      const teamMatch = !searchTerm || card.dataset.team.toLowerCase().includes(searchTerm);
+      const posMatch  = !searchTerm || card.dataset.pos.toLowerCase().includes(searchTerm);
+      const matches   = nameMatch || teamMatch || posMatch;
+
+      card.classList.toggle('hidden', !matches);
+      card.classList.toggle('search-match', !!(matches && searchTerm));
+      if (matches) sectionVisible++;
+    });
+
+    visibleTotal += sectionVisible;
+    if (countEl) countEl.textContent = sectionVisible;
+    // Hide the whole section if no cards visible
+    section.style.display = sectionVisible === 0 ? 'none' : '';
+  });
+
+  if (plCount) plCount.textContent = visibleTotal;
+  if (noResults) noResults.style.display = visibleTotal === 0 ? '' : 'none';
+}
+
+// Position tab clicks
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    activeGroup = tab.dataset.group;
+    applyFilters();
+  });
+});
+
+// Live search — debounced 120ms
+let debounceTimer;
+searchInput.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    searchTerm = searchInput.value.trim().toLowerCase();
+    // When searching, switch to "All" tab so results from every group show
+    if (searchTerm) {
+      tabs.forEach(t => t.classList.remove('active'));
+      document.querySelector('[data-group="all"]').classList.add('active');
+      activeGroup = 'all';
+    }
+    applyFilters();
+  }, 120);
+});
+
+// Focus search with keyboard shortcut /
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement !== searchInput) {
+    e.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+  }
+});
+</script>
+{% endblock %}

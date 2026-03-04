@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}Parlay Breakdown — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="bi bi-cash-stack me-2" style="color:#ffc107;"></i>Parlay Breakdown</h4>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      Monthly P&L · sportsbook analysis · full betting history
+    </div>
+  </div>
+  <a href="{{ url_for('reports.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Reports
+  </a>
+</div>
+
+{# ── Filters ── #}
+<form method="GET" action="{{ url_for('reports.parlay_breakdown') }}"
+      class="rounded-3 p-3 mb-4 d-flex flex-wrap align-items-end gap-3"
+      style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div>
+    <label class="ctrl-lbl d-block mb-1">From</label>
+    <input type="date" name="date_from" value="{{ date_from }}" class="ctrl-input">
+  </div>
+  <div>
+    <label class="ctrl-lbl d-block mb-1">To</label>
+    <input type="date" name="date_to" value="{{ date_to }}" class="ctrl-input">
+  </div>
+  <div>
+    <label class="ctrl-lbl d-block mb-1">Sportsbook</label>
+    <select name="sportsbook" class="ctrl-input">
+      <option value="">All</option>
+      {% for sb in sportsbooks %}
+      <option value="{{ sb }}" {% if sportsbook==sb %}selected{% endif %}>{{ sb }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="ctrl-lbl d-block mb-1">Status</label>
+    <select name="status" class="ctrl-input">
+      <option value="">All</option>
+      <option value="won"  {% if status_filter=='won'  %}selected{% endif %}>Won</option>
+      <option value="lost" {% if status_filter=='lost' %}selected{% endif %}>Lost</option>
+      <option value="push" {% if status_filter=='push' %}selected{% endif %}>Push</option>
+      <option value="pending" {% if status_filter=='pending' %}selected{% endif %}>Pending</option>
+    </select>
+  </div>
+  <button type="submit" class="btn btn-sm" style="background:#69BE28;color:#001a0a;font-weight:700;padding:6px 16px;">
+    <i class="bi bi-funnel-fill me-1"></i>Apply
+  </button>
+  {% if date_from or date_to or sportsbook or status_filter %}
+  <a href="{{ url_for('reports.parlay_breakdown') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+  {% endif %}
+</form>
+
+{# ── KPI cards ── #}
+{% set resolved = parlays | selectattr('status.value', 'ne', 'pending') | list %}
+{% set won_list = parlays | selectattr('status.value', 'eq', 'won') | list %}
+{% set lost_list = parlays | selectattr('status.value', 'eq', 'lost') | list %}
+{% set total_wagered = parlays | sum(attribute='bet_amount') | float %}
+{% set net_pl = resolved | sum(attribute='profit_loss') | float %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Total Parlays</div>
+      <div class="kpi-val">{{ parlays | length }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Win Rate</div>
+      <div class="kpi-val" style="color:#69BE28;">
+        {% if resolved %}{{ (won_list | length / resolved | length * 100) | round(1) }}%{% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Net P&L</div>
+      <div class="kpi-val" style="color:{% if net_pl >= 0 %}#4ade80{% else %}#f87171{% endif %};">
+        {% if net_pl >= 0 %}+{% endif %}${{ "%.2f" | format(net_pl | abs) }}
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="kpi-lbl">Total Wagered</div>
+      <div class="kpi-val">${{ "%.0f" | format(total_wagered) }}</div>
+    </div>
+  </div>
+</div>
+
+{# ── Charts ── #}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-7">
+    <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="chart-lbl mb-2">Monthly P&L</div>
+      <canvas id="monthlyChart" height="180"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-lg-5">
+    <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="chart-lbl mb-2">Win Rate by Sportsbook</div>
+      <canvas id="sbChart" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+{# ── History table ── #}
+<div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="chart-lbl">Parlay History
+      <span style="color:rgba(255,255,255,.25);font-weight:400;text-transform:none;letter-spacing:0;">
+        ({{ parlays | length }} records)
+      </span>
+    </div>
+    {% if parlays %}
+    <a href="{{ url_for('reports.index') }}" class="btn btn-sm btn-outline-secondary"
+       style="font-size:.72rem;">Export CSV via Saved Reports</a>
+    {% endif %}
+  </div>
+
+  {% if parlays %}
+  <div style="overflow-x:auto;">
+    <table id="parlay-tbl" class="display" style="width:100%;">
+      <thead>
+        <tr>
+          <th>Date</th><th>Name</th><th>Sportsbook</th><th>Legs</th>
+          <th>Bet</th><th>Payout</th><th>P&L</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in parlays %}
+        {% set pl = p.profit_loss %}
+        <tr>
+          <td>{{ p.bet_date.strftime('%m/%d/%Y') if p.bet_date else '—' }}</td>
+          <td>
+            <a href="{{ url_for('parlays.detail', parlay_id=p.id) }}"
+               style="color:#e2e8f0;text-decoration:none;font-weight:600;">
+              {{ p.name or ('Parlay #' + p.id | string) }}
+            </a>
+          </td>
+          <td>{{ p.sportsbook or '—' }}</td>
+          <td style="text-align:center;">{{ p.legs | length }}</td>
+          <td>${{ "%.2f" | format(p.bet_amount | float) }}</td>
+          <td>${{ "%.2f" | format(p.actual_payout | float if p.actual_payout else 0) }}</td>
+          <td style="font-weight:700;color:{% if pl > 0 %}#4ade80{% elif pl < 0 %}#f87171{% else %}#adb5bd{% endif %};">
+            {% if pl > 0 %}+{% endif %}${{ "%.2f" | format(pl | abs) }}
+          </td>
+          <td>
+            {% set sv = p.status.value if p.status else '' %}
+            <span style="font-size:.68rem;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:4px;
+              {% if sv == 'won' %}background:rgba(105,190,40,.15);color:#69BE28;
+              {% elif sv == 'lost' %}background:rgba(248,113,113,.15);color:#f87171;
+              {% elif sv == 'push' %}background:rgba(250,204,21,.12);color:#facc15;
+              {% else %}background:rgba(255,255,255,.08);color:rgba(255,255,255,.4);{% endif %}">
+              {{ sv | upper }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-4" style="color:rgba(255,255,255,.25);">
+    <i class="bi bi-inbox d-block mb-2" style="font-size:2rem;opacity:.3;"></i>
+    No parlays match the current filters.
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.ctrl-lbl { font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35); }
+.ctrl-input { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;padding:5px 10px;border-radius:6px;font-size:.82rem; }
+.ctrl-input:focus { outline:none;border-color:#69BE28; }
+.ctrl-input option { background:#1a1a2e;color:#e2e8f0; }
+.chart-lbl { font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35); }
+.kpi-card { background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px;text-align:center; }
+.kpi-lbl { font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px; }
+.kpi-val { font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:1.9rem;font-weight:700;color:#fff;line-height:1; }
+/* DataTables dark override */
+#parlay-tbl_wrapper .dataTables_length select,
+#parlay-tbl_wrapper .dataTables_filter input {
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;border-radius:6px;padding:3px 8px;
+}
+#parlay-tbl_wrapper .dataTables_info,
+#parlay-tbl_wrapper .dataTables_paginate { color:rgba(255,255,255,.4);font-size:.78rem; }
+#parlay-tbl_wrapper .paginate_button { color:rgba(255,255,255,.5)!important;border:none!important;background:none!important; }
+#parlay-tbl_wrapper .paginate_button.current { background:rgba(105,190,40,.15)!important;color:#69BE28!important;border-radius:4px; }
+#parlay-tbl thead th { color:rgba(255,255,255,.4)!important;border-bottom:1px solid rgba(255,255,255,.08)!important;font-size:.7rem!important;font-weight:700!important;letter-spacing:.06em!important;text-transform:uppercase; }
+#parlay-tbl tbody td { border-bottom:1px solid rgba(255,255,255,.04)!important;color:#e2e8f0;font-size:.82rem; }
+#parlay-tbl tbody tr:hover td { background:rgba(255,255,255,.03)!important; }
+</style>
+<script>
+Chart.defaults.color = '#adb5bd';
+Chart.defaults.font.family = "'Barlow Condensed','Segoe UI',sans-serif";
+const DARK = { grid:'rgba(255,255,255,.05)', tooltip:{bg:'#1a1a2e',border:'#2a2a4a'} };
+const fmtMoney = v => (v>=0?'+':'')+' $'+Math.abs(v).toFixed(2);
+
+// DataTable
+{% if parlays %}
+$(document).ready(function() {
+  $('#parlay-tbl').DataTable({
+    order: [[0,'desc']],
+    pageLength: 25,
+    language: { search: 'Filter:' },
+    columnDefs: [{ targets:[4,5,6], className:'dt-right' }],
+  });
+});
+{% endif %}
+
+// Monthly P&L chart
+async function loadMonthlyChart() {
+  const data = await fetch('/api/parlay/monthly-pl').then(r=>r.json()).catch(()=>[]);
+  if (!data.length) return;
+  new Chart(document.getElementById('monthlyChart').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels: data.map(d=>d.month),
+      datasets:[
+        { label:'P&L', data:data.map(d=>d.pl),
+          backgroundColor: data.map(d=>d.pl>=0?'rgba(105,190,40,.7)':'rgba(248,113,113,.7)'),
+          borderRadius:4, order:2 },
+        { label:'Win %', data:data.map(d=>d.win_rate),
+          type:'line', borderColor:'#ffc107', borderWidth:2, pointRadius:4,
+          pointBackgroundColor:'#ffc107', fill:false, yAxisID:'y2', order:1 },
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{ legend:{ labels:{color:'#adb5bd'} },
+        tooltip:{ backgroundColor:DARK.tooltip.bg, borderColor:DARK.tooltip.border, borderWidth:1, titleColor:'#fff', bodyColor:'#ccc',
+          callbacks:{ label: ctx => ctx.dataset.yAxisID==='y2' ? ' Win: '+ctx.parsed.y+'%' : ' P&L: '+fmtMoney(ctx.parsed.y) }}
+      },
+      scales:{
+        x:{ grid:{color:DARK.grid}, ticks:{color:'#adb5bd'} },
+        y:{ grid:{color:DARK.grid}, ticks:{color:'#adb5bd', callback:v=>'$'+v} },
+        y2:{ position:'right', grid:{display:false}, ticks:{color:'#ffc10788', callback:v=>v+'%'}, min:0, max:100 },
+      },
+    }
+  });
+}
+
+// Sportsbook chart
+async function loadSbChart() {
+  const data = await fetch('/api/parlay/sportsbook-breakdown').then(r=>r.json()).catch(()=>[]);
+  if (!data.length) return;
+  new Chart(document.getElementById('sbChart').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels: data.map(d=>d.sportsbook),
+      datasets:[
+        { label:'Win Rate %', data:data.map(d=>d.win_rate),
+          backgroundColor: data.map(d=>d.win_rate>=50?'rgba(105,190,40,.7)':'rgba(248,113,113,.65)'),
+          borderRadius:4, yAxisID:'y' },
+        { label:'Total Bets', data:data.map(d=>d.total),
+          backgroundColor:'rgba(255,255,255,.08)', borderRadius:4, yAxisID:'y2' },
+      ]
+    },
+    options:{
+      responsive:true, indexAxis:'y',
+      plugins:{ legend:{ labels:{color:'#adb5bd'} },
+        tooltip:{ backgroundColor:DARK.tooltip.bg, borderColor:DARK.tooltip.border, borderWidth:1, titleColor:'#fff', bodyColor:'#ccc' }
+      },
+      scales:{
+        x:{ grid:{color:DARK.grid}, ticks:{color:'#adb5bd', callback:v=>v+'%'} },
+        y:{ grid:{color:'transparent'}, ticks:{color:'#e2e8f0', font:{weight:600}} },
+        y2:{ display:false },
+      },
+    }
+  });
+}
+
+loadMonthlyChart();
+loadSbChart();
+</script>
+{% endblock %}

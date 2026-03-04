@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/biggis/nfl-parlay-tracker/app/templates/admin/users.html:*)",
+      "Bash(docker exec:*)",
+      "Bash(/Users/biggis/nfl-parlay-tracker/app/extensions.py:*)",
+      "Bash(docker compose exec:*)"
+    ]
+  }
+}

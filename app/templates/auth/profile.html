@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Profile — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+  <i class="bi bi-person-circle" style="font-size:1.4rem;color:#69BE28;"></i>
+  <h4 class="fw-bold mb-0">Profile</h4>
+</div>
+
+<div class="row g-4">
+
+  {# ── User info card ── #}
+  <div class="col-md-5 col-lg-4">
+    <div class="rounded-3 p-4" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+
+      {# Avatar area #}
+      <div class="text-center mb-4">
+        <div class="mx-auto mb-3 d-flex align-items-center justify-content-center"
+             style="width:72px;height:72px;border-radius:50%;background:rgba(105,190,40,.1);
+                    border:2px solid rgba(105,190,40,.3);">
+          <i class="bi bi-person-fill" style="font-size:2rem;color:#69BE28;"></i>
+        </div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:.04em;color:#fff;">
+          {{ current_user.username }}
+        </div>
+        <div class="mt-1">
+          <span style="font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+                       padding:3px 10px;border-radius:4px;
+                       {% if current_user.is_admin %}background:rgba(105,190,40,.15);color:#69BE28;
+                       {% else %}background:rgba(255,255,255,.07);color:rgba(255,255,255,.45);{% endif %}">
+            {{ current_user.role.value|upper }}
+          </span>
+        </div>
+      </div>
+
+      {# Details #}
+      <div class="d-flex flex-column gap-2">
+        <div class="profile-row">
+          <span class="profile-lbl"><i class="bi bi-person me-1"></i>Username</span>
+          <span class="profile-val">{{ current_user.username }}</span>
+        </div>
+        <div class="profile-row">
+          <span class="profile-lbl"><i class="bi bi-envelope me-1"></i>Email</span>
+          <span class="profile-val" style="font-size:.78rem;">{{ current_user.email }}</span>
+        </div>
+        <div class="profile-row">
+          <span class="profile-lbl"><i class="bi bi-calendar3 me-1"></i>Member Since</span>
+          <span class="profile-val">{{ current_user.created_at.strftime('%b %d, %Y') }}</span>
+        </div>
+        <div class="profile-row">
+          <span class="profile-lbl"><i class="bi bi-shield-fill me-1"></i>Status</span>
+          <span style="font-size:.72rem;font-weight:700;color:{% if current_user.is_active %}#4ade80{% else %}#f87171{% endif %};">
+            {{ 'Active' if current_user.is_active else 'Inactive' }}
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {# ── Change password ── #}
+  <div class="col-md-7 col-lg-5">
+    <div class="rounded-3 p-4" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div style="font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+                  color:rgba(255,255,255,.3);margin-bottom:16px;">
+        <i class="bi bi-lock me-1"></i>Change Password
+      </div>
+      <form method="POST">
+        <div class="mb-3">
+          <label class="pf-lbl d-block mb-1">Current Password</label>
+          <input type="password" name="current_password" class="form-control pf-input" required>
+        </div>
+        <div class="mb-3">
+          <label class="pf-lbl d-block mb-1">New Password</label>
+          <input type="password" name="new_password" class="form-control pf-input"
+                 required minlength="8" placeholder="Min 8 characters">
+        </div>
+        <div class="mb-4">
+          <label class="pf-lbl d-block mb-1">Confirm New Password</label>
+          <input type="password" name="confirm_password" class="form-control pf-input" required>
+        </div>
+        <button type="submit" class="btn btn-sm w-100"
+                style="background:#69BE28;color:#001a0a;font-weight:700;letter-spacing:.05em;font-size:.85rem;padding:10px;">
+          <i class="bi bi-lock-fill me-1"></i>Update Password
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.profile-row:last-child { border-bottom: none; }
+.profile-lbl { font-size: .74rem; color: rgba(255,255,255,.35); }
+.profile-val { font-size: .82rem; color: #e2e8f0; }
+
+.pf-lbl {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+}
+.pf-input {
+  background: rgba(0,34,68,.6) !important;
+  border: 1px solid rgba(255,255,255,.1) !important;
+  color: #e2e8f0 !important;
+  font-size: .84rem;
+  border-radius: 7px !important;
+}
+.pf-input:focus {
+  border-color: #69BE28 !important;
+  box-shadow: 0 0 0 2px rgba(105,190,40,.15) !important;
+}
+</style>
+{% endblock %}

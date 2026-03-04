@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}NFL Standings — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0">
+      <i class="bi bi-table me-2" style="color:#69BE28;"></i>NFL Standings
+    </h4>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      Win-loss records computed from game results in your database
+    </div>
+  </div>
+  <a href="{{ url_for('reports.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Reports
+  </a>
+</div>
+
+{# ── Season selector ── #}
+<div class="d-flex align-items-center gap-2 mb-4">
+  <span class="stnd-lbl">Season</span>
+  <div class="d-flex gap-1" id="stnd-season-btns">
+    {% for s in seasons %}
+    <button class="pill-btn {% if loop.first %}active{% endif %}" data-val="{{ s }}">{{ s }}</button>
+    {% else %}
+    <button class="pill-btn active" data-val="2025">2025</button>
+    <button class="pill-btn" data-val="2024">2024</button>
+    {% endfor %}
+    <button class="pill-btn" data-val="">All Time</button>
+  </div>
+</div>
+
+{# ── League-wide KPI strip ── #}
+<div class="row g-3 mb-4" id="stnd-kpi-row">
+  <div class="col-6 col-md-3">
+    <div class="stnd-kpi">
+      <div class="stnd-kpi-lbl">Games Played</div>
+      <div class="stnd-kpi-val" id="stnd-games">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stnd-kpi">
+      <div class="stnd-kpi-lbl">Avg Combined Pts</div>
+      <div class="stnd-kpi-val" id="stnd-avg-pts">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stnd-kpi">
+      <div class="stnd-kpi-lbl">Highest-Scoring Team</div>
+      <div class="stnd-kpi-val" id="stnd-top-off" style="font-size:1.3rem;">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stnd-kpi">
+      <div class="stnd-kpi-lbl">Best Defense (PA)</div>
+      <div class="stnd-kpi-val" id="stnd-top-def" style="font-size:1.3rem;">—</div>
+    </div>
+  </div>
+</div>
+
+{# ── Wins chart ── #}
+<div class="rounded-3 p-3 mb-4" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="stnd-chart-title">Wins by Team</div>
+  <div id="stnd-chart-empty" style="display:none;text-align:center;padding:2rem;color:rgba(255,255,255,.3);font-size:.85rem;">
+    <i class="bi bi-table d-block mb-2" style="font-size:2rem;opacity:.3;"></i>
+    No game results in the database for this season.
+  </div>
+  <canvas id="stndWinsChart" height="160"></canvas>
+</div>
+
+{# ── Conference tabs ── #}
+<div class="d-flex gap-2 mb-3" id="stnd-conf-tabs">
+  <button class="conf-tab active" data-conf="AFC">AFC</button>
+  <button class="conf-tab" data-conf="NFC">NFC</button>
+  <button class="conf-tab" data-conf="all">All Teams</button>
+</div>
+
+{# ── Standings tables (rendered by JS) ── #}
+<div id="stnd-tables"></div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+.pill-btn {
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.5);padding:3px 12px;border-radius:50px;
+  font-size:.78rem;font-weight:600;cursor:pointer;transition:all .12s;
+}
+.pill-btn:hover:not(.active) { background:rgba(255,255,255,.12);color:#fff; }
+.pill-btn.active { background:#69BE28;border-color:#69BE28;color:#001a0a; }
+.conf-tab {
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  color:rgba(255,255,255,.4);padding:5px 18px;border-radius:8px;
+  font-size:.82rem;font-weight:600;cursor:pointer;transition:all .12s;
+}
+.conf-tab:hover:not(.active) { background:rgba(255,255,255,.1);color:#fff; }
+.conf-tab.active { background:rgba(105,190,40,.18);border-color:rgba(105,190,40,.4);color:#69BE28; }
+.stnd-lbl { font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35); }
+.stnd-kpi { background:#111820;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px;text-align:center; }
+.stnd-kpi-lbl { font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px; }
+.stnd-kpi-val { font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:1.8rem;line-height:1;color:#fff; }
+.stnd-chart-title { font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:10px; }
+.div-block { background:#111820;border:1px solid rgba(255,255,255,.08);border-radius:12px;margin-bottom:16px;overflow:hidden; }
+.div-header { padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5); }
+.stnd-table { width:100%;border-collapse:collapse; }
+.stnd-table th { padding:7px 12px;font-size:.67rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:right;white-space:nowrap; }
+.stnd-table th:first-child { text-align:left;padding-left:16px; }
+.stnd-table td { padding:7px 12px;font-size:.83rem;border-bottom:1px solid rgba(255,255,255,.04);text-align:right;white-space:nowrap; }
+.stnd-table td:first-child { text-align:left;padding-left:16px; }
+.stnd-table tr:last-child td { border-bottom:none; }
+.stnd-table tr:hover td { background:rgba(255,255,255,.03); }
+.team-dot { display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;flex-shrink:0; }
+.rec-badge { font-family:'Barlow Condensed',sans-serif;font-weight:700; }
+</style>
+<script>
+Chart.defaults.color = '#adb5bd';
+Chart.defaults.font.family = "'Barlow Condensed', 'Segoe UI', sans-serif";
+const DARK = { grid:'rgba(255,255,255,.05)', tt:{bg:'#1a1a2e',border:'#2a2a4a'} };
+function tt() { return { backgroundColor:DARK.tt.bg, borderColor:DARK.tt.border, borderWidth:1, titleColor:'#fff', bodyColor:'#ccc' }; }
+
+let standings = {};   // {AFC:{East:[...], ...}, NFC:{...}}
+let season = document.querySelector('#stnd-season-btns .pill-btn.active')?.dataset.val || '';
+let conf = 'AFC';
+let winsChart = null;
+
+async function loadStandings() {
+  const url = `/api/games/standings${season ? '?season=' + season : ''}`;
+  standings = await fetch(url).then(r => r.json()).catch(() => ({}));
+  renderKPIs();
+  renderWinsChart();
+  renderTables();
+}
+
+function renderKPIs() {
+  // Flatten all teams
+  const all = [];
+  for (const c of Object.values(standings)) {
+    for (const div of Object.values(c)) {
+      all.push(...div);
+    }
+  }
+  if (!all.length) {
+    ['stnd-games','stnd-avg-pts','stnd-top-off','stnd-top-def'].forEach(id => {
+      document.getElementById(id).textContent = '—';
+    });
+    return;
+  }
+
+  const totalGames = all.reduce((s, t) => s + t.games_played, 0) / 2;
+  document.getElementById('stnd-games').textContent = Math.round(totalGames);
+
+  const totalPF = all.reduce((s, t) => s + t.pf, 0);
+  const avgPts = totalPF / Math.max(1, Math.round(totalGames));
+  document.getElementById('stnd-avg-pts').textContent = avgPts.toFixed(1);
+
+  const topOff = [...all].sort((a, b) => b.pf - a.pf)[0];
+  document.getElementById('stnd-top-off').textContent = topOff ? topOff.abbreviation + ' (' + topOff.pf + ')' : '—';
+
+  const topDef = [...all].sort((a, b) => a.pa - b.pa)[0];
+  document.getElementById('stnd-top-def').textContent = topDef ? topDef.abbreviation + ' (' + topDef.pa + ')' : '—';
+}
+
+function renderWinsChart() {
+  // Sort all teams by wins desc
+  const all = [];
+  for (const c of Object.values(standings)) {
+    for (const div of Object.values(c)) all.push(...div);
+  }
+  all.sort((a, b) => b.wins - a.wins);
+
+  const canvas = document.getElementById('stndWinsChart');
+  const empty  = document.getElementById('stnd-chart-empty');
+  if (!all.length) {
+    empty.style.display = ''; canvas.style.display = 'none'; return;
+  }
+  empty.style.display = 'none'; canvas.style.display = '';
+
+  if (winsChart) { winsChart.destroy(); }
+  winsChart = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: all.map(t => t.abbreviation),
+      datasets: [{
+        label: 'Wins',
+        data: all.map(t => t.wins),
+        backgroundColor: all.map(t => (t.color || '#69BE28') + 'BB'),
+        borderColor:     all.map(t => t.color || '#69BE28'),
+        borderWidth: 1, borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...tt(), callbacks: { afterLabel: ctx => `  ${all[ctx.dataIndex].wins}-${all[ctx.dataIndex].losses}${all[ctx.dataIndex].ties ? '-' + all[ctx.dataIndex].ties : ''}` } }
+      },
+      scales: {
+        x: { grid: { color: DARK.grid }, ticks: { color: '#e2e8f0', font: { weight: 600 }, maxRotation: 45 } },
+        y: { grid: { color: DARK.grid }, ticks: { color: '#adb5bd', stepSize: 1 }, beginAtZero: true },
+      },
+    }
+  });
+}
+
+function renderTables() {
+  const container = document.getElementById('stnd-tables');
+  const confs = conf === 'all' ? Object.keys(standings) : [conf];
+  let html = '';
+
+  for (const c of confs) {
+    const divs = standings[c] || {};
+    const divNames = Object.keys(divs).sort();
+    for (const div of divNames) {
+      const teams = divs[div];
+      html += `
+        <div class="div-block">
+          <div class="div-header">${c} ${div}</div>
+          <table class="stnd-table">
+            <thead>
+              <tr>
+                <th>Team</th>
+                <th>W</th><th>L</th><th>T</th><th>Pct</th>
+                <th>PF</th><th>PA</th><th>Diff</th>
+                <th>Home</th><th>Away</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${teams.map((t, i) => `
+                <tr>
+                  <td>
+                    <span class="team-dot" style="background:${t.color};"></span>
+                    <a href="/reports/team-performance?team_id=${t.team_id}${season ? '&season=' + season : ''}"
+                       style="color:#e2e8f0;text-decoration:none;font-weight:${i===0?'700':'500'};"
+                       onmouseover="this.style.color='${t.color}'" onmouseout="this.style.color='#e2e8f0'">
+                      ${t.name}
+                    </a>
+                  </td>
+                  <td class="fw-bold" style="color:${t.wins>t.losses?'#69BE28':t.losses>t.wins?'#f87171':'#e2e8f0'};">${t.wins}</td>
+                  <td>${t.losses}</td>
+                  <td style="color:rgba(255,255,255,.4);">${t.ties}</td>
+                  <td style="color:rgba(255,255,255,.6);">${t.pct.toFixed(3)}</td>
+                  <td style="color:#e2e8f0;">${t.pf}</td>
+                  <td style="color:rgba(255,255,255,.5);">${t.pa}</td>
+                  <td style="color:${t.diff>0?'#69BE28':t.diff<0?'#f87171':'#adb5bd'};">${t.diff>0?'+':''}${t.diff}</td>
+                  <td style="color:rgba(255,255,255,.5);font-size:.78rem;">${t.home}</td>
+                  <td style="color:rgba(255,255,255,.5);font-size:.78rem;">${t.away}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+  }
+
+  if (!html) {
+    container.innerHTML = `<div style="text-align:center;padding:3rem;color:rgba(255,255,255,.3);font-size:.88rem;">
+      <i class="bi bi-table d-block mb-2" style="font-size:2rem;opacity:.3;"></i>
+      No standings data for this selection. Run <strong>espn_schedule</strong> or <strong>games</strong> sync to populate game results.
+    </div>`;
+    return;
+  }
+  container.innerHTML = html;
+}
+
+// Season buttons
+document.querySelectorAll('#stnd-season-btns .pill-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#stnd-season-btns .pill-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    season = btn.dataset.val;
+    loadStandings();
+  });
+});
+
+// Conference tabs
+document.querySelectorAll('.conf-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.conf-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    conf = btn.dataset.conf;
+    renderTables();
+  });
+});
+
+loadStandings();
+</script>
+{% endblock %}

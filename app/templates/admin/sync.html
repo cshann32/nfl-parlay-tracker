@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Data Sync — Admin{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div class="d-flex align-items-center gap-2">
+    <i class="bi bi-arrow-repeat" style="font-size:1.3rem;color:#69BE28;"></i>
+    <h4 class="fw-bold mb-0">NFL Data Sync</h4>
+  </div>
+  <a href="{{ url_for('admin.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Admin
+  </a>
+</div>
+
+<div style="font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:10px;">Trigger Sync</div>
+<div class="rounded-3 p-4 mb-5" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="mb-4">
+    <form method="POST" action="{{ url_for('admin.run_sync') }}">
+      <input type="hidden" name="category" value="all">
+      <button type="submit" class="btn" style="background:#69BE28;color:#001a0a;font-weight:700;letter-spacing:.08em;font-size:.9rem;padding:10px 24px;border-radius:8px;" onclick="return confirm('Sync ALL categories? This may take several minutes.')">
+        <i class="bi bi-arrow-repeat me-2"></i>Sync All Categories
+      </button>
+    </form>
+  </div>
+  {# ── ESPN free syncs ── #}
+  <div class="mb-3">
+    <div style="font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+                color:rgba(105,190,40,.6);margin-bottom:8px;">
+      <i class="bi bi-broadcast me-1"></i>ESPN Free API — No Key Required
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for cat in ['espn_teams','espn_roster','espn_schedule','game_stats','espn_odds','espn_news'] %}
+      <form method="POST" action="{{ url_for('admin.run_sync') }}">
+        <input type="hidden" name="category" value="{{ cat }}">
+        <button type="submit" class="sync-cat-btn sync-cat-free">{{ cat|replace('_',' ')|title }}</button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Paid RapidAPI syncs ── #}
+  <div>
+    <div style="font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+                color:rgba(255,255,255,.25);margin-bottom:8px;">
+      <i class="bi bi-key me-1"></i>RapidAPI — Requires NFL_API_KEY
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for cat in ['seasons','teams','coaches','players','games','scoreboard','boxscores','plays','stats','odds','draft','news'] %}
+      <form method="POST" action="{{ url_for('admin.run_sync') }}">
+        <input type="hidden" name="category" value="{{ cat }}">
+        <button type="submit" class="sync-cat-btn">{{ cat|replace('_',' ')|title }}</button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div style="font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:10px;">Sync History</div>
+<div class="rounded-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);overflow:hidden;">
+  <div style="overflow-x:auto;">
+    <table class="table mb-0" id="syncTable" style="color:#e2e8f0;font-size:.82rem;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.2);">
+          <th class="ps-3 py-2 sync-th">Category</th>
+          <th class="py-2 sync-th">Started</th>
+          <th class="py-2 sync-th">Duration</th>
+          <th class="py-2 sync-th text-center">Inserted</th>
+          <th class="py-2 sync-th text-center">Updated</th>
+          <th class="py-2 sync-th text-center">Skipped</th>
+          <th class="py-2 sync-th">By</th>
+          <th class="py-2 sync-th">Status</th>
+          <th class="pe-3 py-2 sync-th"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in recent %}
+        {% set sv = log.status.value %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+          <td class="ps-3 py-2 fw-semibold">{{ log.category }}</td>
+          <td class="py-2" style="color:rgba(255,255,255,.45);white-space:nowrap;">{{ log.started_at.strftime('%m/%d/%y %H:%M') }}</td>
+          <td class="py-2" style="color:rgba(255,255,255,.45);">{{ "%.1f"|format(log.duration_seconds or 0) }}s</td>
+          <td class="py-2 text-center">{{ log.records_inserted or 0 }}</td>
+          <td class="py-2 text-center">{{ log.records_updated or 0 }}</td>
+          <td class="py-2 text-center" style="color:rgba(255,255,255,.4);">{{ log.records_skipped or 0 }}</td>
+          <td class="py-2" style="color:rgba(255,255,255,.4);">{{ log.triggered_by or '—' }}</td>
+          <td class="py-2">
+            <a href="{{ url_for('admin.sync_detail', log_id=log.id) }}"
+               style="text-decoration:none;">
+              <span class="sync-badge sync-{{ sv }}">{{ sv | upper }}</span>
+              {% if log.errors %}
+              <span class="ms-1" style="font-size:.6rem;font-weight:700;color:#f87171;
+                                        background:rgba(248,113,113,.12);padding:1px 5px;border-radius:3px;">
+                {{ log.errors | length }} err{{ 's' if log.errors | length != 1 else '' }}
+              </span>
+              {% endif %}
+            </a>
+          </td>
+          <td class="pe-3 py-2">
+            {% if sv in ['failed', 'partial'] or log.errors %}
+            <a href="{{ url_for('admin.sync_detail', log_id=log.id) }}"
+               class="btn btn-sm" style="font-size:.68rem;padding:2px 10px;
+                 background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.25);
+                 border-radius:4px;white-space:nowrap;text-decoration:none;">
+              <i class="bi bi-bug me-1"></i>View Report
+            </a>
+            {% else %}
+            <a href="{{ url_for('admin.sync_detail', log_id=log.id) }}"
+               style="font-size:.68rem;color:rgba(255,255,255,.2);text-decoration:none;">
+              Details
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center py-4" style="color:rgba(255,255,255,.25);">No syncs yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.sync-cat-btn { background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.6);border-radius:6px;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:5px 12px;cursor:pointer;transition:background .12s,border-color .12s,color .12s; }
+.sync-cat-btn:hover { background:rgba(105,190,40,.12);border-color:rgba(105,190,40,.3);color:#69BE28; }
+.sync-cat-free { background:rgba(105,190,40,.06);border-color:rgba(105,190,40,.2);color:rgba(105,190,40,.8); }
+.sync-cat-free:hover { background:rgba(105,190,40,.18);border-color:rgba(105,190,40,.5);color:#69BE28; }
+.sync-th { font-size:.65rem!important;font-weight:700!important;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35)!important;border:none!important; }
+.sync-badge { display:inline-block;font-size:.62rem;font-weight:700;letter-spacing:.08em;padding:2px 8px;border-radius:4px; }
+.sync-success { background:rgba(105,190,40,.15);color:#69BE28; }
+.sync-failed  { background:rgba(248,113,113,.15);color:#f87171; }
+.sync-partial { background:rgba(250,204,21,.12);color:#facc15; }
+.sync-running { background:rgba(250,204,21,.12);color:#facc15; }
+#syncTable_wrapper .dataTables_length select,
+#syncTable_wrapper .dataTables_filter input { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;border-radius:6px;padding:3px 8px; }
+#syncTable_wrapper .dataTables_info, #syncTable_wrapper .dataTables_paginate { color:rgba(255,255,255,.4);font-size:.78rem; }
+#syncTable_wrapper .paginate_button { color:rgba(255,255,255,.5)!important;border:none!important;background:none!important; }
+#syncTable_wrapper .paginate_button.current { background:rgba(105,190,40,.15)!important;color:#69BE28!important;border-radius:4px; }
+</style>
+<script>
+$(document).ready(function() { $('#syncTable').DataTable({ order: [[1,'desc']], pageLength: 25 }); });
+</script>
+{% endblock %}

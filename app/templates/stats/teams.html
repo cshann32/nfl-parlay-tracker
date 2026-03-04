@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Teams{% endblock %}
+{% block content %}
+
+<h2 class="fw-black mb-4" style="letter-spacing:-.02em;">Teams</h2>
+
+{% if not teams %}
+<p class="text-muted py-4 text-center">No teams found. <a href="{{ url_for('admin.sync') }}" class="text-warning">Sync data</a> first.</p>
+{% else %}
+
+{% for conf in ['AFC', 'NFC'] %}
+{% set conf_teams = teams | selectattr('conference', 'equalto', conf) | list %}
+{% if conf_teams %}
+
+<div class="mb-5">
+  {# Conference header #}
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <span class="fw-black text-uppercase"
+          style="font-size:1.15rem;letter-spacing:.06em;
+                 color:{{ '#e84141' if conf == 'AFC' else '#4f7de8' }};">
+      {{ conf }}
+    </span>
+    <div style="height:2px;flex:1;background:{{ 'rgba(232,65,65,.2)' if conf == 'AFC' else 'rgba(79,125,232,.2)' }};"></div>
+  </div>
+
+  {% for div in ['North', 'South', 'East', 'West'] %}
+  {% set div_teams = conf_teams | selectattr('division', 'equalto', div) | list %}
+  {% if div_teams %}
+  <div class="mb-4">
+    <div class="mb-2 fw-semibold text-uppercase"
+         style="font-size:.62rem;letter-spacing:.2em;color:rgba(255,255,255,.28);">
+      {{ conf }} {{ div }}
+    </div>
+    <div class="row g-2">
+      {% for team in div_teams %}
+      {% set tc = team.primary_color if team.primary_color else '#555' %}
+      <div class="col-12 col-sm-6 col-md-3">
+        <a href="{{ url_for('stats.team_detail', team_id=team.id) }}"
+           class="text-decoration-none d-block team-card"
+           style="border-radius:12px;overflow:hidden;background:#111820;
+                  border:1px solid rgba(255,255,255,.08);">
+          <div style="height:3px;background:{{ tc }};"></div>
+          <div class="d-flex align-items-center gap-3 px-3 py-3">
+            {% if team.logo_url %}
+            <img src="{{ team.logo_url }}" alt="{{ team.abbreviation }}"
+                 style="width:52px;height:52px;object-fit:contain;flex-shrink:0;">
+            {% else %}
+            <div style="width:52px;height:52px;background:rgba(255,255,255,.05);
+                        border-radius:8px;flex-shrink:0;"></div>
+            {% endif %}
+            <div style="min-width:0;">
+              <div class="fw-black text-white" style="font-size:1rem;letter-spacing:-.01em;">
+                {{ team.abbreviation }}
+              </div>
+              <div style="font-size:.73rem;color:rgba(255,255,255,.42);
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                {{ team.city or team.name }}
+              </div>
+            </div>
+            <i class="bi bi-chevron-right ms-auto" style="color:rgba(255,255,255,.2);font-size:.75rem;"></i>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+</div>
+{% endif %}
+{% endfor %}
+
+{% endif %}
+{% endblock %}
+

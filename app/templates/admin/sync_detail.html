@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Sync Report — {{ log.category | title }} — Admin{% endblock %}
+{% block content %}
+
+{% set sv = log.status.value %}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('admin.sync') }}"
+       style="color:rgba(255,255,255,.35);text-decoration:none;font-size:.82rem;">
+      <i class="bi bi-arrow-left me-1"></i>Sync History
+    </a>
+    <span style="color:rgba(255,255,255,.15);">/</span>
+    <div>
+      <h4 class="fw-bold mb-0" style="font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:1.6rem;letter-spacing:.04em;">
+        {{ log.category | replace('_', ' ') | upper }}
+        <span class="ms-2 sync-badge sync-{{ sv }}" style="font-size:.75rem;vertical-align:middle;">{{ sv | upper }}</span>
+      </h4>
+      <div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-top:2px;">
+        Started {{ log.started_at.strftime('%A, %B %-d %Y at %H:%M:%S UTC') }}
+        {% if log.triggered_by %} · triggered by <strong style="color:rgba(255,255,255,.5);">{{ log.triggered_by }}</strong>{% endif %}
+      </div>
+    </div>
+  </div>
+  {# Re-run button #}
+  <form method="POST" action="{{ url_for('admin.run_sync') }}">
+    <input type="hidden" name="category" value="{{ log.category }}">
+    <button type="submit" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-repeat me-1"></i>Re-run Sync
+    </button>
+  </form>
+</div>
+
+{# ── Summary KPIs ── #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-2">
+    <div class="sd-kpi">
+      <div class="sd-kpi-lbl">Duration</div>
+      <div class="sd-kpi-val">{{ "%.2f"|format(log.duration_seconds or 0) }}s</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="sd-kpi">
+      <div class="sd-kpi-lbl">Fetched</div>
+      <div class="sd-kpi-val">{{ log.records_fetched or 0 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="sd-kpi">
+      <div class="sd-kpi-lbl">Inserted</div>
+      <div class="sd-kpi-val" style="color:#4ade80;">{{ log.records_inserted or 0 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="sd-kpi">
+      <div class="sd-kpi-lbl">Updated</div>
+      <div class="sd-kpi-val" style="color:#60a5fa;">{{ log.records_updated or 0 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="sd-kpi">
+      <div class="sd-kpi-lbl">Skipped</div>
+      <div class="sd-kpi-val" style="color:rgba(255,255,255,.4);">{{ log.records_skipped or 0 }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="sd-kpi">
+      <div class="sd-kpi-lbl">Errors</div>
+      <div class="sd-kpi-val" style="color:{% if log.errors %}#f87171{% else %}rgba(255,255,255,.3){% endif %};">
+        {{ (log.errors or []) | length }}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Timing bar ── #}
+<div class="sd-panel mb-4">
+  <div class="sd-panel-title">Timeline</div>
+  <div class="d-flex align-items-center gap-4 flex-wrap" style="font-size:.8rem;color:rgba(255,255,255,.55);">
+    <div>
+      <span style="color:rgba(255,255,255,.3);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;">Started</span><br>
+      <span style="font-weight:600;color:#e2e8f0;">{{ log.started_at.strftime('%H:%M:%S') }} UTC</span>
+    </div>
+    <div style="flex:1;height:2px;background:rgba(255,255,255,.06);border-radius:2px;min-width:40px;"></div>
+    <div>
+      {% if log.finished_at %}
+      <span style="color:rgba(255,255,255,.3);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;">Finished</span><br>
+      <span style="font-weight:600;color:#e2e8f0;">{{ log.finished_at.strftime('%H:%M:%S') }} UTC</span>
+      {% else %}
+      <span style="color:#facc15;font-size:.75rem;font-weight:700;">Still running…</span>
+      {% endif %}
+    </div>
+    <div>
+      <span style="color:rgba(255,255,255,.3);font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;">Duration</span><br>
+      <span style="font-weight:600;color:#e2e8f0;">{{ "%.3f"|format(log.duration_seconds or 0) }}s</span>
+    </div>
+  </div>
+</div>
+
+{# ── Error Report ── #}
+<div class="sd-panel mb-4">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="sd-panel-title mb-0">Error Report</div>
+    {% if log.errors %}
+    <span style="font-size:.68rem;font-weight:700;color:#f87171;background:rgba(248,113,113,.12);padding:2px 10px;border-radius:4px;border:1px solid rgba(248,113,113,.25);">
+      {{ log.errors | length }} error{{ 's' if log.errors | length != 1 else '' }} captured
+    </span>
+    {% endif %}
+  </div>
+
+  {% if log.errors %}
+    {% for err in log.errors %}
+    <div class="sd-error-block {% if not loop.last %}mb-3{% endif %}">
+      {# Error header #}
+      <div class="d-flex align-items-start gap-3 mb-2">
+        <div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:rgba(248,113,113,.15);
+                    border:1px solid rgba(248,113,113,.3);display:flex;align-items:center;justify-content:center;">
+          <i class="bi bi-exclamation" style="color:#f87171;font-size:.9rem;"></i>
+        </div>
+        <div style="flex:1;">
+          {% if err.get('category') %}
+          <div style="font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+                      color:rgba(255,255,255,.3);margin-bottom:3px;">
+            Category: {{ err.category }}
+          </div>
+          {% endif %}
+          <div style="font-size:.9rem;font-weight:700;color:#f87171;line-height:1.3;word-break:break-word;">
+            {{ err.get('error', 'Unknown error') }}
+          </div>
+        </div>
+      </div>
+
+      {# Detail dict if present #}
+      {% if err.get('detail') %}
+      <div class="mt-2">
+        <div style="font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+                    color:rgba(255,255,255,.25);margin-bottom:6px;">Detail</div>
+        <div class="sd-code-block">
+          {% for k, v in err.detail.items() %}
+          <div class="sd-code-row">
+            <span class="sd-code-key">{{ k }}</span>
+            <span class="sd-code-val">{{ v }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {# Traceback if present #}
+      {% if err.get('traceback') %}
+      <div class="mt-2">
+        <div style="font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+                    color:rgba(255,255,255,.25);margin-bottom:6px;">Traceback</div>
+        <pre class="sd-traceback">{{ err.traceback }}</pre>
+      </div>
+      {% endif %}
+
+      {# Any other keys in the error dict #}
+      {% set known_keys = ['error', 'category', 'detail', 'traceback'] %}
+      {% set extra = err.items() | selectattr('0', 'ne', 'error')
+                                 | selectattr('0', 'ne', 'category')
+                                 | selectattr('0', 'ne', 'detail')
+                                 | selectattr('0', 'ne', 'traceback') | list %}
+      {% if extra %}
+      <div class="mt-2">
+        <div class="sd-code-block">
+          {% for k, v in extra %}
+          <div class="sd-code-row">
+            <span class="sd-code-key">{{ k }}</span>
+            <span class="sd-code-val">{{ v }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+  {% elif sv == 'failed' %}
+  <div class="text-center py-4" style="color:rgba(255,255,255,.3);">
+    <i class="bi bi-question-circle d-block mb-2" style="font-size:1.8rem;opacity:.4;"></i>
+    <div style="font-size:.82rem;">No error details were captured for this sync.</div>
+    <div style="font-size:.72rem;margin-top:4px;">Check the application logs for more information.</div>
+    <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-outline-secondary mt-3">
+      <i class="bi bi-file-text me-1"></i>View App Logs
+    </a>
+  </div>
+
+  {% elif sv == 'running' %}
+  <div class="text-center py-4" style="color:#facc15;">
+    <i class="bi bi-arrow-repeat d-block mb-2" style="font-size:1.8rem;animation:spin 1.2s linear infinite;"></i>
+    <div style="font-size:.82rem;">Sync is still running — no errors yet.</div>
+  </div>
+
+  {% else %}
+  <div class="text-center py-4" style="color:rgba(255,255,255,.25);">
+    <i class="bi bi-check-circle d-block mb-2" style="font-size:1.8rem;color:rgba(105,190,40,.5);"></i>
+    <div style="font-size:.82rem;color:rgba(255,255,255,.4);">No errors — sync completed successfully.</div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Log Hint ── #}
+{% if sv in ['failed', 'partial'] %}
+<div class="rounded-3 p-3" style="background:rgba(250,204,21,.05);border:1px solid rgba(250,204,21,.15);">
+  <div class="d-flex align-items-start gap-3">
+    <i class="bi bi-lightbulb" style="color:#facc15;font-size:1rem;flex-shrink:0;margin-top:2px;"></i>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.55);line-height:1.5;">
+      For full stack traces and request/response details, check the
+      <a href="{{ url_for('admin.logs') }}" style="color:#facc15;text-decoration:none;font-weight:700;">application logs</a>.
+      Filter for <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-size:.75rem;">nfl.sync</code> to find entries from this sync run started at
+      <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-size:.75rem;">{{ log.started_at.strftime('%H:%M:%S') }}</code>.
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<style>
+.sd-kpi { background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px;text-align:center; }
+.sd-kpi-lbl { font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:4px; }
+.sd-kpi-val { font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:1.9rem;line-height:1;color:#fff; }
+.sd-panel { background:#111820;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:18px; }
+.sd-panel-title { font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:12px; }
+.sd-error-block { background:rgba(248,113,113,.04);border:1px solid rgba(248,113,113,.12);border-radius:8px;padding:14px; }
+.sd-code-block { background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:10px 14px;font-family:'Courier New',monospace;font-size:.78rem; }
+.sd-code-row { display:flex;gap:12px;padding:2px 0; }
+.sd-code-key { color:rgba(167,139,250,.8);min-width:120px;flex-shrink:0;word-break:break-all; }
+.sd-code-val { color:#e2e8f0;word-break:break-all;white-space:pre-wrap; }
+.sd-traceback { background:rgba(0,0,0,.4);border:1px solid rgba(248,113,113,.15);border-radius:6px;padding:12px 16px;font-family:'Courier New',monospace;font-size:.72rem;color:#fca5a5;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;margin:0; }
+.sync-badge { display:inline-block;font-size:.62rem;font-weight:700;letter-spacing:.08em;padding:2px 8px;border-radius:4px; }
+.sync-success { background:rgba(105,190,40,.15);color:#69BE28; }
+.sync-failed  { background:rgba(248,113,113,.15);color:#f87171; }
+.sync-partial { background:rgba(250,204,21,.12);color:#facc15; }
+.sync-running { background:rgba(250,204,21,.12);color:#facc15; }
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+{% endblock %}

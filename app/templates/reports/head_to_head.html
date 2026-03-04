@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}Head-to-Head Matchup — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="bi bi-arrow-left-right me-2" style="color:#60a5fa;"></i>Head-to-Head Matchup</h4>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      All-time record, scoring trends, and game log between any two teams
+    </div>
+  </div>
+  <a href="{{ url_for('reports.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Reports
+  </a>
+</div>
+
+{# Team selector #}
+<form id="h2h-form" class="rounded-3 p-3 mb-4 d-flex flex-wrap align-items-end gap-3"
+      style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div>
+    <label class="h2h-lbl d-block mb-1">Team 1</label>
+    <select name="team1_id" id="team1-sel" class="h2h-select">
+      <option value="">Select team…</option>
+      {% for t in teams %}
+      <option value="{{ t.id }}" {% if team1_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:rgba(255,255,255,.3);align-self:center;">VS</div>
+  <div>
+    <label class="h2h-lbl d-block mb-1">Team 2</label>
+    <select name="team2_id" id="team2-sel" class="h2h-select">
+      <option value="">Select team…</option>
+      {% for t in teams %}
+      <option value="{{ t.id }}" {% if team2_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="button" id="h2h-go" class="btn btn-sm"
+          style="background:#69BE28;color:#001a0a;font-weight:700;padding:7px 20px;">
+    <i class="bi bi-search me-1"></i>Load Matchup
+  </button>
+</form>
+
+{# Results (hidden until data loads) #}
+<div id="h2h-results" style="display:none;">
+
+  {# Record header #}
+  <div class="h2h-vs-header mb-4">
+    <div class="h2h-team-block" id="t1-block">
+      <div class="h2h-team-abbrev" id="t1-abbrev">—</div>
+      <div class="h2h-wins" id="t1-wins">0</div>
+      <div class="h2h-wins-lbl">WINS</div>
+    </div>
+    <div class="h2h-center-block">
+      <div class="h2h-total-games" id="h2h-total-games">0 games</div>
+      <div class="h2h-vs-divider">VS</div>
+      <div class="h2h-record-note" id="h2h-record-note"></div>
+    </div>
+    <div class="h2h-team-block" id="t2-block">
+      <div class="h2h-team-abbrev" id="t2-abbrev">—</div>
+      <div class="h2h-wins" id="t2-wins">0</div>
+      <div class="h2h-wins-lbl">WINS</div>
+    </div>
+  </div>
+
+  {# Charts row #}
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-7">
+      <div class="h2h-panel">
+        <div class="h2h-panel-title">Score History (Most Recent 20 Games)</div>
+        <canvas id="h2hScoreChart" height="220"></canvas>
+      </div>
+    </div>
+    <div class="col-12 col-lg-5">
+      <div class="h2h-panel">
+        <div class="h2h-panel-title">Combined Total Points Distribution</div>
+        <canvas id="h2hTotalChart" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  {# Stats row #}
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+      <div class="h2h-panel text-center">
+        <div class="h2h-panel-title">Avg Pts Scored</div>
+        <div class="h2h-stat-row">
+          <div>
+            <div class="h2h-stat-val" id="t1-avg-pts" style="color:#69BE28;">—</div>
+            <div class="h2h-stat-lbl" id="t1-avg-lbl">—</div>
+          </div>
+          <div class="h2h-stat-vs">VS</div>
+          <div>
+            <div class="h2h-stat-val" id="t2-avg-pts" style="color:#60a5fa;">—</div>
+            <div class="h2h-stat-lbl" id="t2-avg-lbl">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="h2h-panel text-center">
+        <div class="h2h-panel-title">Avg Combined Total</div>
+        <div class="h2h-big-stat" id="h2h-avg-total">—</div>
+        <div style="font-size:.7rem;color:rgba(255,255,255,.3);margin-top:4px;">points per game</div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="h2h-panel text-center">
+        <div class="h2h-panel-title">Largest Margin</div>
+        <div class="h2h-big-stat" id="h2h-max-margin">—</div>
+        <div style="font-size:.7rem;color:rgba(255,255,255,.3);margin-top:4px;" id="h2h-max-margin-game"></div>
+      </div>
+    </div>
+  </div>
+
+  {# Game log table #}
+  <div class="h2h-panel">
+    <div class="h2h-panel-title mb-3">Game Log</div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;" id="h2h-game-table">
+        <thead>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.08);">
+            <th class="h2h-th">Date</th>
+            <th class="h2h-th">Season</th>
+            <th class="h2h-th">Week</th>
+            <th class="h2h-th text-center" id="h2h-th-t1">Team 1</th>
+            <th class="h2h-th text-center">Score</th>
+            <th class="h2h-th text-center" id="h2h-th-t2">Team 2</th>
+            <th class="h2h-th text-center">Total</th>
+            <th class="h2h-th text-center">Winner</th>
+          </tr>
+        </thead>
+        <tbody id="h2h-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="h2h-empty" class="text-center py-5" style="color:rgba(255,255,255,.25);">
+  <i class="bi bi-arrow-left-right d-block mb-3" style="font-size:3rem;opacity:.2;"></i>
+  Select two teams above to see their head-to-head history.
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+.h2h-lbl { font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35); }
+.h2h-select { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;padding:6px 12px;border-radius:8px;font-size:.88rem;min-width:200px; }
+.h2h-select:focus { outline:none;border-color:#69BE28; }
+.h2h-select option { background:#1a1a2e; }
+.h2h-panel { background:#111820;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:18px; }
+.h2h-panel-title { font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:12px; }
+.h2h-vs-header { display:flex;align-items:center;justify-content:center;gap:2rem;
+  background:#111820;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:24px; }
+.h2h-team-block { text-align:center;flex:1; }
+.h2h-team-abbrev { font-family:'Bebas Neue',sans-serif;font-size:2.2rem;letter-spacing:.08em;color:#fff;line-height:1; }
+.h2h-wins { font-family:'Bebas Neue',sans-serif;font-size:3.5rem;line-height:1;color:#fff; }
+.h2h-wins-lbl { font-size:.62rem;font-weight:700;letter-spacing:.15em;color:rgba(255,255,255,.35);margin-top:2px; }
+.h2h-center-block { text-align:center;min-width:120px; }
+.h2h-total-games { font-size:.72rem;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.35);text-transform:uppercase;margin-bottom:8px; }
+.h2h-vs-divider { font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:rgba(255,255,255,.2);letter-spacing:.1em; }
+.h2h-record-note { font-size:.68rem;color:rgba(255,255,255,.3);margin-top:6px; }
+.h2h-th { font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35);padding:6px 8px;text-align:left; }
+.h2h-td { font-size:.83rem;color:#e2e8f0;padding:8px 8px;border-bottom:1px solid rgba(255,255,255,.04); }
+.h2h-stat-row { display:flex;align-items:center;justify-content:center;gap:1.5rem;margin-top:8px; }
+.h2h-stat-val { font-family:'Bebas Neue',sans-serif;font-size:2.2rem;line-height:1; }
+.h2h-stat-lbl { font-size:.62rem;color:rgba(255,255,255,.3);margin-top:2px; }
+.h2h-stat-vs { font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:rgba(255,255,255,.2); }
+.h2h-big-stat { font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:#fff;line-height:1;margin-top:8px; }
+</style>
+<script>
+Chart.defaults.color = '#adb5bd';
+Chart.defaults.font.family = "'Barlow Condensed','Segoe UI',sans-serif";
+const DARK = { grid:'rgba(255,255,255,.05)', tt:{bg:'#1a1a2e',border:'#2a2a4a'} };
+function tt() { return { backgroundColor:DARK.tt.bg, borderColor:DARK.tt.border, borderWidth:1, titleColor:'#fff', bodyColor:'#ccc' }; }
+
+let charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+async function loadH2H() {
+  const t1 = document.getElementById('team1-sel').value;
+  const t2 = document.getElementById('team2-sel').value;
+  if (!t1 || !t2 || t1 === t2) return;
+
+  const data = await fetch(`/api/games/head-to-head?team1_id=${t1}&team2_id=${t2}`)
+    .then(r => r.json()).catch(() => null);
+
+  if (!data || data.error || !data.games.length) {
+    document.getElementById('h2h-results').style.display = 'none';
+    document.getElementById('h2h-empty').textContent = 'No head-to-head games found between these teams.';
+    document.getElementById('h2h-empty').style.display = '';
+    return;
+  }
+
+  document.getElementById('h2h-empty').style.display = 'none';
+  document.getElementById('h2h-results').style.display = '';
+
+  const { team1, team2, record, games } = data;
+  const t1color = team1.color || '#69BE28';
+  const t2color = team2.color || '#60a5fa';
+
+  // Header
+  document.getElementById('t1-abbrev').textContent = team1.abbrev;
+  document.getElementById('t2-abbrev').textContent = team2.abbrev;
+  document.getElementById('t1-wins').textContent   = record.team1_wins;
+  document.getElementById('t2-wins').textContent   = record.team2_wins;
+  document.getElementById('t1-wins').style.color   = t1color;
+  document.getElementById('t2-wins').style.color   = t2color;
+  document.getElementById('h2h-total-games').textContent = record.total + ' GAMES';
+  document.getElementById('h2h-record-note').textContent = record.ties > 0 ? record.ties + ' tie(s)' : '';
+
+  // Stats
+  const t1pts   = games.map(g => g.t1_score);
+  const t2pts   = games.map(g => g.t2_score);
+  const totals  = games.map(g => g.total_pts);
+  const margins = games.map(g => Math.abs(g.t1_score - g.t2_score));
+  const avgTotal = (totals.reduce((a,b)=>a+b,0)/totals.length).toFixed(1);
+  const maxMarginIdx = margins.indexOf(Math.max(...margins));
+  const maxMarginGame = games[maxMarginIdx];
+
+  document.getElementById('t1-avg-pts').textContent = (t1pts.reduce((a,b)=>a+b,0)/t1pts.length).toFixed(1);
+  document.getElementById('t2-avg-pts').textContent = (t2pts.reduce((a,b)=>a+b,0)/t2pts.length).toFixed(1);
+  document.getElementById('t1-avg-lbl').textContent = team1.abbrev;
+  document.getElementById('t2-avg-lbl').textContent = team2.abbrev;
+  document.getElementById('h2h-avg-total').textContent = avgTotal;
+  document.getElementById('h2h-max-margin').textContent = Math.max(...margins) + ' pts';
+  document.getElementById('h2h-max-margin-game').textContent =
+    maxMarginGame ? maxMarginGame.date_fmt + ' · ' + maxMarginGame.away_team + ' @ ' + maxMarginGame.home_team : '';
+
+  // Column headers
+  document.getElementById('h2h-th-t1').textContent = team1.abbrev;
+  document.getElementById('h2h-th-t2').textContent = team2.abbrev;
+
+  // Score history chart (last 20)
+  const recent = [...games].reverse().slice(-20);
+  destroyChart('h2hScoreChart');
+  charts['h2hScoreChart'] = new Chart(document.getElementById('h2hScoreChart'), {
+    type: 'bar',
+    data: {
+      labels: recent.map(g => g.date_fmt),
+      datasets: [
+        { label: team1.abbrev, data: recent.map(g=>g.t1_score), backgroundColor: t1color+'BB', borderRadius:4 },
+        { label: team2.abbrev, data: recent.map(g=>g.t2_score), backgroundColor: t2color+'BB', borderRadius:4 },
+      ]
+    },
+    options: { responsive:true, plugins:{ legend:{labels:{color:'#adb5bd'}}, tooltip:{...tt()} },
+      scales: { x:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',maxRotation:45}},
+                y:{grid:{color:DARK.grid},ticks:{color:'#adb5bd'}} } }
+  });
+
+  // Total points distribution (bucket histogram)
+  const buckets = {};
+  totals.forEach(t => { const b = Math.floor(t/10)*10; buckets[b] = (buckets[b]||0)+1; });
+  const bKeys = Object.keys(buckets).map(Number).sort((a,b)=>a-b);
+  destroyChart('h2hTotalChart');
+  charts['h2hTotalChart'] = new Chart(document.getElementById('h2hTotalChart'), {
+    type: 'bar',
+    data: {
+      labels: bKeys.map(b => b+'–'+(b+9)),
+      datasets: [{ label: 'Games', data: bKeys.map(b=>buckets[b]),
+        backgroundColor: 'rgba(96,165,250,.7)', borderRadius: 4 }]
+    },
+    options: { responsive:true, plugins:{ legend:{display:false}, tooltip:{...tt()} },
+      scales: { x:{grid:{color:DARK.grid},ticks:{color:'#adb5bd'}},
+                y:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',stepSize:1}} } }
+  });
+
+  // Game log table
+  const tbody = document.getElementById('h2h-tbody');
+  tbody.innerHTML = games.map(g => {
+    const t1won = g.winner === 'team1';
+    const t2won = g.winner === 'team2';
+    return `<tr>
+      <td class="h2h-td">${g.date_fmt}</td>
+      <td class="h2h-td">${g.season_year || '—'}</td>
+      <td class="h2h-td">Wk ${g.week || '—'}</td>
+      <td class="h2h-td text-center" style="font-weight:700;color:${t1won?t1color:'rgba(255,255,255,.4)'};">${g.t1_score}</td>
+      <td class="h2h-td text-center" style="color:rgba(255,255,255,.3);font-size:.75rem;">${g.away_team}@${g.home_team}</td>
+      <td class="h2h-td text-center" style="font-weight:700;color:${t2won?t2color:'rgba(255,255,255,.4)'};">${g.t2_score}</td>
+      <td class="h2h-td text-center" style="color:rgba(255,255,255,.5);">${g.total_pts}</td>
+      <td class="h2h-td text-center">
+        <span style="font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:4px;
+          background:${t1won?t1color+'22':t2won?t2color+'22':'rgba(255,255,255,.06)'};
+          color:${t1won?t1color:t2won?t2color:'rgba(255,255,255,.3)'};">
+          ${t1won?team1.abbrev:t2won?team2.abbrev:'TIE'}
+        </span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('h2h-go').addEventListener('click', loadH2H);
+
+// Auto-load if both teams pre-selected from URL
+{% if team1_id and team2_id %}
+loadH2H();
+{% endif %}
+</script>
+{% endblock %}

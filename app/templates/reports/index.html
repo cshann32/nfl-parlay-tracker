@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+{% block title %}Reports & Analytics{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="fw-bold mb-0">
+      <i class="bi bi-graph-up-arrow me-2" style="color:#ffc107;"></i>Reports &amp; Analytics
+    </h4>
+    <div style="font-size:.75rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      All charts built from your local database — no external calls on this page
+    </div>
+  </div>
+  <a href="{{ url_for('reports.create') }}" class="btn btn-sm btn-warning">
+    <i class="bi bi-plus-circle me-1"></i>New Report
+  </a>
+</div>
+
+
+{# ══════════════════════════════════════════════════════════
+   SECTION 1 — MY BETTING SNAPSHOT
+   ══════════════════════════════════════════════════════════ #}
+<div class="sec-label">My Betting Snapshot</div>
+
+<div class="row g-3 mb-2">
+  {% for id, lbl in [('snap-total','Total Bets'),('snap-wr','Win Rate'),('snap-pl','Net P&L'),('snap-roi','ROI')] %}
+  <div class="col-6 col-md-3">
+    <div class="kpi-card text-center">
+      <div class="kpi-lbl">{{ lbl }}</div>
+      <div class="kpi-val" id="{{ id }}">—</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3 mb-5">
+  <div class="col-12 col-md-5">
+    <div class="chart-panel">
+      <div class="chart-panel-title">Monthly P&amp;L</div>
+      <canvas id="snapMonthlyChart" height="160"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-md-4">
+    <div class="chart-panel">
+      <div class="chart-panel-title">Win Rate by Sportsbook</div>
+      <canvas id="snapSbChart" height="160"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-md-3">
+    <div class="chart-panel d-flex flex-column align-items-center justify-content-center">
+      <div class="chart-panel-title w-100">Results</div>
+      <canvas id="snapDonut" style="max-width:150px;max-height:150px;"></canvas>
+    </div>
+  </div>
+</div>
+
+
+{# ══════════════════════════════════════════════════════════
+   SECTION 2 — NFL LEAGUE SNAPSHOT
+   ══════════════════════════════════════════════════════════ #}
+<div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+  <div class="sec-label" style="margin-bottom:0;">NFL League Snapshot</div>
+  <div class="d-flex align-items-center gap-2">
+    <span class="ctrl-lbl">Season</span>
+    <div class="d-flex gap-1" id="nfl-season-btns">
+      {# populated by JS once standings loads #}
+      <button class="pill-btn active" data-val="2025">2025</button>
+      <button class="pill-btn" data-val="2024">2024</button>
+    </div>
+  </div>
+</div>
+
+{# row 1: Passing leaders + Team wins #}
+<div class="row g-3 mb-3">
+  <div class="col-12 col-lg-6">
+    <div class="chart-panel" style="height:320px;">
+      <div class="chart-panel-title">
+        Passing Yards Leaders
+        <a href="{{ url_for('reports.leaders') }}" class="chart-link ms-2">Full Explorer →</a>
+      </div>
+      <div id="passEmpty" style="display:none;" class="empty-msg">No passing stats found — run a sync first.</div>
+      <canvas id="passChart" height="260"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="chart-panel" style="height:320px;">
+      <div class="chart-panel-title">
+        Team Wins
+        <a href="{{ url_for('reports.standings') }}" class="chart-link ms-2">Full Standings →</a>
+      </div>
+      <div id="winsEmpty" style="display:none;" class="empty-msg">No game results found — run espn_schedule or games sync.</div>
+      <canvas id="winsChart" height="260"></canvas>
+    </div>
+  </div>
+</div>
+
+{# row 2: Score histogram + Weekly scoring trend #}
+<div class="row g-3 mb-3">
+  <div class="col-12 col-lg-5">
+    <div class="chart-panel">
+      <div class="chart-panel-title">
+        Combined Score Distribution
+        <a href="{{ url_for('reports.score_distribution') }}" class="chart-link ms-2">Full Analysis →</a>
+      </div>
+      <div class="d-flex gap-3 mb-2" id="sd-kpi-inline">
+        <div>
+          <span class="kpi-lbl">Avg Total</span>
+          <span class="fw-bold ms-1" id="sd-avg" style="color:#fb923c;">—</span>
+        </div>
+        <div>
+          <span class="kpi-lbl">Median</span>
+          <span class="fw-bold ms-1" id="sd-med" style="color:#fbbf24;">—</span>
+        </div>
+        <div>
+          <span class="kpi-lbl">Home PPG</span>
+          <span class="fw-bold ms-1" id="sd-home" style="color:#69BE28;">—</span>
+        </div>
+        <div>
+          <span class="kpi-lbl">Away PPG</span>
+          <span class="fw-bold ms-1" id="sd-away" style="color:#60a5fa;">—</span>
+        </div>
+      </div>
+      <div id="sdEmpty" style="display:none;" class="empty-msg">No game score data available.</div>
+      <canvas id="sdHistChart" height="180"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-lg-7">
+    <div class="chart-panel">
+      <div class="chart-panel-title">
+        Weekly Scoring Trend
+        <a href="{{ url_for('reports.score_distribution') }}" class="chart-link ms-2">Details →</a>
+      </div>
+      <div id="weeklyEmpty" style="display:none;" class="empty-msg">No weekly data available.</div>
+      <canvas id="weeklyChart" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+{# row 3: Rushing leaders + Receiving leaders #}
+<div class="row g-3 mb-5">
+  <div class="col-12 col-md-6">
+    <div class="chart-panel">
+      <div class="chart-panel-title">
+        Rushing Yards Leaders
+        <a href="{{ url_for('reports.leaders') }}" class="chart-link ms-2">Full Explorer →</a>
+      </div>
+      <div id="rushEmpty" style="display:none;" class="empty-msg">No rushing stats found.</div>
+      <canvas id="rushChart" height="200"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="chart-panel">
+      <div class="chart-panel-title">
+        Receiving Yards Leaders
+        <a href="{{ url_for('reports.leaders') }}" class="chart-link ms-2">Full Explorer →</a>
+      </div>
+      <div id="recvEmpty" style="display:none;" class="empty-msg">No receiving stats found.</div>
+      <canvas id="recvChart" height="200"></canvas>
+    </div>
+  </div>
+</div>
+
+
+{# ══════════════════════════════════════════════════════════
+   SECTION 3 — REPORT CARDS
+   ══════════════════════════════════════════════════════════ #}
+<div class="sec-label">Explore Reports</div>
+<div class="row g-3 mb-5">
+
+  {% set cards = [
+    (url_for('reports.analytics'),        'bi-graph-up-arrow',    'rgba(105,190,40,.12)',  '#69BE28',  'Analytics Dashboard',           'Parlay performance + NFL stat leaders + team rankings',   'Parlay + NFL'),
+    (url_for('reports.standings'),        'bi-table',             'rgba(105,190,40,.1)',   '#69BE28',  'NFL Standings',                  'Division standings with W-L, point diff, home/away splits','League'),
+    (url_for('reports.team_performance'), 'bi-shield-fill',       'rgba(168,85,247,.1)',   '#a855f7',  'Team Performance',               'Full season record, weekly scoring chart, stat leaders',   'Team'),
+    (url_for('reports.leaders'),          'bi-trophy',            'rgba(255,193,7,.1)',    '#ffc107',  'Stat Leaders Explorer',          'Top players by any stat — passing, rushing, receiving, defense','Players'),
+    (url_for('reports.player_research'),  'bi-person-lines-fill', 'rgba(96,165,250,.1)',   '#60a5fa',  'Player Research',                'Week-by-week game log — built for prop betting research',  'Props'),
+    (url_for('reports.head_to_head'),     'bi-arrow-left-right',  'rgba(96,165,250,.1)',   '#60a5fa',  'Head-to-Head Matchup',           'All-time record, scoring trends between any two teams',    'History'),
+    (url_for('reports.score_distribution'),'bi-bar-chart-steps',  'rgba(251,146,60,.1)',   '#fb923c',  'Score & Totals Distribution',    'Score histogram + weekly trends — essential for O/U research','O/U'),
+    (url_for('reports.parlay_breakdown'), 'bi-cash-stack',        'rgba(251,191,36,.1)',   '#fbbf24',  'Parlay Breakdown',               'Monthly P&L, sportsbook win rates, full betting history',  'Betting'),
+    (url_for('reports.leg_count'),        'bi-123',               'rgba(167,139,250,.1)',  '#a78bfa',  'ROI by Leg Count',               'Win rate and ROI for 2-leg, 3-leg, 4-leg+ parlays',       'Strategy'),
+    (url_for('reports.create'),           'bi-plus-lg',           'rgba(255,255,255,.05)', 'rgba(255,255,255,.3)', 'Custom Report', 'Build a filtered report on parlays or stats and save it', 'Custom'),
+  ] %}
+
+  {% for href, icon, bg, col, title, desc, tag in cards %}
+  <div class="col-12 col-md-6 col-lg-3">
+    <a href="{{ href }}" class="report-card text-decoration-none d-block"
+       {% if icon == 'bi-plus-lg' %}style="border-style:dashed;"{% endif %}>
+      <div class="rc-icon" style="background:{{ bg }};color:{{ col }};"><i class="bi {{ icon }}"></i></div>
+      <div class="rc-title" style="color:{{ 'rgba(255,255,255,.4)' if icon == 'bi-plus-lg' else '#e2e8f0' }};">{{ title }}</div>
+      <div class="rc-desc">{{ desc }}</div>
+      <div class="rc-tag">{{ tag }}</div>
+    </a>
+  </div>
+  {% endfor %}
+
+</div>
+
+
+{# ── Saved custom reports ── #}
+{% if reports %}
+<div class="sec-label">Saved Reports</div>
+<div class="row g-3">
+  {% for r in reports %}
+  <div class="col-md-4">
+    <div class="chart-panel">
+      <div class="fw-semibold text-white mb-1" style="font-size:.88rem;">{{ r.name }}</div>
+      <div class="kpi-lbl">Type: {{ r.config.get('type','—') }}</div>
+      {% if r.last_run_at %}
+      <div class="kpi-lbl">Last run: {{ r.last_run_at.strftime('%b %d %H:%M') }}</div>
+      {% endif %}
+      <div class="d-flex gap-1 mt-3">
+        <a href="{{ url_for('reports.run', report_id=r.id) }}" class="btn btn-sm btn-warning">Run</a>
+        <a href="{{ url_for('reports.export_csv', report_id=r.id) }}" class="btn btn-sm btn-outline-secondary">CSV</a>
+        <a href="{{ url_for('reports.export_pdf', report_id=r.id) }}" class="btn btn-sm btn-outline-secondary">PDF</a>
+        <form method="POST" action="{{ url_for('reports.delete', report_id=r.id) }}" class="ms-auto"
+              onsubmit="return confirm('Delete this report?')">
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<style>
+/* ── Section label ── */
+.sec-label { font-size:.62rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(255,255,255,.28);margin-bottom:10px; }
+
+/* ── KPI card ── */
+.kpi-card { background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;padding:14px; }
+.kpi-lbl { font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(255,255,255,.35);margin-bottom:3px; }
+.kpi-val { font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:1.9rem;
+  line-height:1;color:#fff; }
+
+/* ── Chart panel ── */
+.chart-panel { background:#111820;border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;padding:16px;height:100%; }
+.chart-panel-title { font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(255,255,255,.35);margin-bottom:10px; }
+.chart-link { font-size:.65rem;font-weight:600;color:rgba(105,190,40,.7);text-decoration:none;
+  letter-spacing:.04em;text-transform:uppercase; }
+.chart-link:hover { color:#69BE28; }
+
+/* ── Pill buttons ── */
+.pill-btn { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.5);padding:3px 12px;border-radius:50px;
+  font-size:.78rem;font-weight:600;cursor:pointer;transition:all .12s; }
+.pill-btn:hover:not(.active) { background:rgba(255,255,255,.12);color:#fff; }
+.pill-btn.active { background:#ffc107;border-color:#ffc107;color:#000; }
+
+/* ── Control label ── */
+.ctrl-lbl { font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:rgba(255,255,255,.35);white-space:nowrap; }
+
+/* ── Empty state ── */
+.empty-msg { text-align:center;padding:1.5rem;color:rgba(255,255,255,.25);
+  font-size:.82rem;line-height:1.5; }
+
+/* ── Report cards ── */
+.report-card { display:block;background:#111820;border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;padding:18px;transition:border-color .18s,transform .18s,box-shadow .18s;height:100%; }
+.report-card:hover { border-color:rgba(105,190,40,.45);transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,.35); }
+.rc-icon { width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;margin-bottom:12px; }
+.rc-title { font-family:'Barlow Condensed','Segoe UI',sans-serif;font-size:1rem;font-weight:700;
+  margin-bottom:5px;letter-spacing:.02em; }
+.rc-desc { font-size:.76rem;color:rgba(255,255,255,.38);line-height:1.45;margin-bottom:10px; }
+.rc-tag { display:inline-block;font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(255,255,255,.28);background:rgba(255,255,255,.05);border-radius:4px;padding:2px 7px; }
+</style>
+
+<script>
+Chart.defaults.color = '#adb5bd';
+Chart.defaults.font.family = "'Barlow Condensed','Segoe UI',sans-serif";
+const DARK = { grid:'rgba(255,255,255,.05)', tt:{bg:'#1a1a2e',border:'#2a2a4a'} };
+const fmtMoney = v => (v>=0?'+':'-')+'$'+Math.abs(v).toFixed(2);
+function tt() { return { backgroundColor:DARK.tt.bg,borderColor:DARK.tt.border,borderWidth:1,titleColor:'#fff',bodyColor:'#ccc' }; }
+
+let charts = {};
+function destroy(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
+
+let nflSeason = '2025';   // will be updated from first loaded season
+
+// ────────────────────────────────────────────────
+// SECTION 1 — BETTING SNAPSHOT
+// ────────────────────────────────────────────────
+async function loadBettingSnapshot() {
+  try {
+    const a = await fetch('/api/parlay/analytics').then(r=>r.json());
+    document.getElementById('snap-total').textContent = a.total ?? '—';
+
+    const wrEl = document.getElementById('snap-wr');
+    wrEl.textContent = a.win_rate != null ? a.win_rate+'%' : '—';
+    wrEl.style.color = (a.win_rate >= 50) ? '#69BE28' : '#f87171';
+
+    const plEl = document.getElementById('snap-pl');
+    plEl.textContent = a.net_pl != null ? fmtMoney(a.net_pl) : '—';
+    plEl.style.color = a.net_pl >= 0 ? '#4ade80' : '#f87171';
+
+    const roiEl = document.getElementById('snap-roi');
+    roiEl.textContent = a.roi != null ? a.roi+'%' : '—';
+    roiEl.style.color = a.roi >= 0 ? '#4ade80' : '#f87171';
+
+    if (a.won || a.lost || a.push) {
+      charts['snapDonut'] = new Chart(document.getElementById('snapDonut'), {
+        type:'doughnut',
+        data:{ labels:['Won','Lost','Push'],
+          datasets:[{ data:[a.won||0,a.lost||0,a.push||0],
+            backgroundColor:['rgba(105,190,40,.85)','rgba(248,113,113,.8)','rgba(255,255,255,.18)'],
+            borderWidth:0,hoverOffset:4 }]},
+        options:{ cutout:'68%',plugins:{ legend:{position:'bottom',labels:{color:'#adb5bd',boxWidth:10,padding:8,font:{size:11}}},tooltip:{...tt()} } }
+      });
+    }
+  } catch(e){}
+
+  try {
+    const d = await fetch('/api/parlay/monthly-pl').then(r=>r.json());
+    if (d.length) {
+      charts['snapMonthly'] = new Chart(document.getElementById('snapMonthlyChart'), {
+        type:'bar',
+        data:{ labels:d.map(m=>m.month),
+          datasets:[{ data:d.map(m=>m.pl),
+            backgroundColor:d.map(m=>m.pl>=0?'rgba(105,190,40,.7)':'rgba(248,113,113,.65)'),
+            borderRadius:4 }]},
+        options:{ responsive:true,
+          plugins:{ legend:{display:false},tooltip:{...tt(),callbacks:{label:c=>' '+fmtMoney(c.raw)}} },
+          scales:{ x:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',maxTicksLimit:6}},
+                   y:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',callback:v=>'$'+v}} } }
+      });
+    }
+  } catch(e){}
+
+  try {
+    const d = await fetch('/api/parlay/sportsbook-breakdown').then(r=>r.json());
+    if (d.length) {
+      charts['snapSb'] = new Chart(document.getElementById('snapSbChart'), {
+        type:'bar',
+        data:{ labels:d.map(s=>s.sportsbook),
+          datasets:[{ data:d.map(s=>s.win_rate),
+            backgroundColor:d.map(s=>s.win_rate>=50?'rgba(105,190,40,.75)':'rgba(248,113,113,.7)'),
+            borderRadius:4 }]},
+        options:{ responsive:true,indexAxis:'y',
+          plugins:{ legend:{display:false},tooltip:{...tt(),callbacks:{label:c=>' '+c.raw+'%'}} },
+          scales:{ x:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',callback:v=>v+'%'},min:0,max:100},
+                   y:{grid:{color:'transparent'},ticks:{color:'#e2e8f0',font:{weight:600}}} } }
+      });
+    }
+  } catch(e){}
+}
+
+
+// ────────────────────────────────────────────────
+// SECTION 2 — NFL LEAGUE SNAPSHOT
+// ────────────────────────────────────────────────
+
+function showEmpty(id, canvas) {
+  document.getElementById(id).style.display = '';
+  if (canvas) document.getElementById(canvas).style.display = 'none';
+}
+function hideEmpty(id, canvas) {
+  document.getElementById(id).style.display = 'none';
+  if (canvas) document.getElementById(canvas).style.display = '';
+}
+
+// ── Passing leaders ──
+async function loadPassers() {
+  const d = await fetch(`/api/reports/stat-leaders?season=${nflSeason}&category=passing&stat_type=YDS&limit=12`)
+    .then(r=>r.json()).catch(()=>[]);
+  destroy('passChart');
+  if (!d.length) { showEmpty('passEmpty','passChart'); return; }
+  hideEmpty('passEmpty','passChart');
+  charts['passChart'] = new Chart(document.getElementById('passChart'), {
+    type:'bar',
+    data:{
+      labels: d.map(p => p.player),
+      datasets:[{ data:d.map(p=>p.total),
+        backgroundColor:d.map(p=>(p.team_color||'#69BE28')+'BB'),
+        borderColor:d.map(p=>p.team_color||'#69BE28'),
+        borderWidth:1,borderRadius:4 }]
+    },
+    options:{ responsive:true,indexAxis:'y',
+      plugins:{ legend:{display:false},
+        tooltip:{...tt(),callbacks:{ afterLabel:ctx=>'  '+d[ctx.dataIndex].team }} },
+      scales:{ x:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',callback:v=>v.toLocaleString()}},
+               y:{grid:{color:'transparent'},ticks:{color:'#e2e8f0',font:{size:11,weight:600}}} } }
+  });
+}
+
+// ── Team wins ──
+async function loadTeamWins() {
+  const raw = await fetch(`/api/games/standings?season=${nflSeason}`).then(r=>r.json()).catch(()=>({}));
+  // Flatten all teams
+  const all = [];
+  for (const c of Object.values(raw)) {
+    for (const teams of Object.values(c)) all.push(...teams);
+  }
+  all.sort((a,b)=>b.wins-a.wins);
+  destroy('winsChart');
+  if (!all.length) { showEmpty('winsEmpty','winsChart'); return; }
+  hideEmpty('winsEmpty','winsChart');
+  charts['winsChart'] = new Chart(document.getElementById('winsChart'), {
+    type:'bar',
+    data:{
+      labels: all.map(t=>t.abbreviation),
+      datasets:[{ data:all.map(t=>t.wins),
+        backgroundColor:all.map(t=>(t.color||'#69BE28')+'BB'),
+        borderColor:all.map(t=>t.color||'#69BE28'),
+        borderWidth:1,borderRadius:4 }]
+    },
+    options:{ responsive:true,
+      plugins:{ legend:{display:false},
+        tooltip:{...tt(),callbacks:{ afterLabel:ctx=>`  ${all[ctx.dataIndex].wins}-${all[ctx.dataIndex].losses}` }} },
+      scales:{ x:{grid:{color:DARK.grid},ticks:{color:'#e2e8f0',font:{size:10,weight:600},maxRotation:45}},
+               y:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',stepSize:1},beginAtZero:true} } }
+  });
+}
+
+// ── Score distribution ──
+async function loadScoreDist() {
+  const d = await fetch(`/api/games/score-distribution?season=${nflSeason}`).then(r=>r.json()).catch(()=>null);
+  destroy('sdHistChart');
+  if (!d || !d.games) { showEmpty('sdEmpty','sdHistChart'); return; }
+  hideEmpty('sdEmpty','sdHistChart');
+  document.getElementById('sd-avg').textContent  = d.avg_total;
+  document.getElementById('sd-med').textContent  = d.median_total;
+  document.getElementById('sd-home').textContent = d.home_ppg;
+  document.getElementById('sd-away').textContent = d.away_ppg;
+  charts['sdHistChart'] = new Chart(document.getElementById('sdHistChart'), {
+    type:'bar',
+    data:{
+      labels: d.buckets.map(b=>b.range),
+      datasets:[{ data:d.buckets.map(b=>b.count),
+        backgroundColor:d.buckets.map(b=>{
+          const mid=b.min+2;
+          return Math.abs(mid-d.avg_total)<=5?'rgba(251,146,60,.85)':'rgba(251,146,60,.3)';
+        }),
+        borderColor:'rgba(251,146,60,.5)',borderWidth:1,borderRadius:3 }]
+    },
+    options:{ responsive:true,
+      plugins:{ legend:{display:false},
+        tooltip:{...tt(),callbacks:{ label:c=>' '+c.raw+' games ('+( c.raw/d.games*100).toFixed(1)+'%)' }} },
+      scales:{ x:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',font:{size:10}}},
+               y:{grid:{color:DARK.grid},ticks:{color:'#adb5bd'},beginAtZero:true} } }
+  });
+}
+
+// ── Weekly scoring trend ──
+async function loadWeeklyTrend() {
+  const d = await fetch(`/api/games/weekly-scoring?season=${nflSeason}`).then(r=>r.json()).catch(()=>[]);
+  destroy('weeklyChart');
+  if (!d.length) { showEmpty('weeklyEmpty','weeklyChart'); return; }
+  hideEmpty('weeklyEmpty','weeklyChart');
+  charts['weeklyChart'] = new Chart(document.getElementById('weeklyChart'), {
+    type:'line',
+    data:{
+      labels:d.map(w=>w.label),
+      datasets:[
+        { label:'Avg Total', data:d.map(w=>w.avg_total),
+          borderColor:'#fb923c',backgroundColor:'rgba(251,146,60,.1)',
+          borderWidth:2,pointRadius:3,tension:0.3,fill:true },
+        { label:'Home PPG', data:d.map(w=>w.avg_home),
+          borderColor:'#69BE28',backgroundColor:'transparent',
+          borderWidth:1.5,pointRadius:2,borderDash:[4,3],tension:0.3 },
+        { label:'Away PPG', data:d.map(w=>w.avg_away),
+          borderColor:'#60a5fa',backgroundColor:'transparent',
+          borderWidth:1.5,pointRadius:2,borderDash:[4,3],tension:0.3 },
+      ]
+    },
+    options:{ responsive:true,
+      plugins:{ legend:{labels:{color:'#adb5bd',boxWidth:10,padding:12,font:{size:11}}},
+        tooltip:{...tt(),callbacks:{ footer:items=>'  '+d[items[0].dataIndex].games+' games' }} },
+      scales:{ x:{grid:{color:DARK.grid},ticks:{color:'#adb5bd'}},
+               y:{grid:{color:DARK.grid},ticks:{color:'#adb5bd'},beginAtZero:false} } }
+  });
+}
+
+// ── Rushing leaders ──
+async function loadRushers() {
+  const d = await fetch(`/api/reports/stat-leaders?season=${nflSeason}&category=rushing&stat_type=YDS&limit=10`)
+    .then(r=>r.json()).catch(()=>[]);
+  destroy('rushChart');
+  if (!d.length) { showEmpty('rushEmpty','rushChart'); return; }
+  hideEmpty('rushEmpty','rushChart');
+  charts['rushChart'] = new Chart(document.getElementById('rushChart'), {
+    type:'bar',
+    data:{
+      labels:d.map(p=>p.player),
+      datasets:[{ data:d.map(p=>p.total),
+        backgroundColor:d.map(p=>(p.team_color||'#f97316')+'BB'),
+        borderColor:d.map(p=>p.team_color||'#f97316'),
+        borderWidth:1,borderRadius:4 }]
+    },
+    options:{ responsive:true,indexAxis:'y',
+      plugins:{ legend:{display:false},
+        tooltip:{...tt(),callbacks:{ afterLabel:ctx=>'  '+d[ctx.dataIndex].team }} },
+      scales:{ x:{grid:{color:DARK.grid},ticks:{color:'#adb5bd'}},
+               y:{grid:{color:'transparent'},ticks:{color:'#e2e8f0',font:{size:11,weight:600}}} } }
+  });
+}
+
+// ── Receiving leaders ──
+async function loadReceivers() {
+  const d = await fetch(`/api/reports/stat-leaders?season=${nflSeason}&category=receiving&stat_type=YDS&limit=10`)
+    .then(r=>r.json()).catch(()=>[]);
+  destroy('recvChart');
+  if (!d.length) { showEmpty('recvEmpty','recvChart'); return; }
+  hideEmpty('recvEmpty','recvChart');
+  charts['recvChart'] = new Chart(document.getElementById('recvChart'), {
+    type:'bar',
+    data:{
+      labels:d.map(p=>p.player),
+      datasets:[{ data:d.map(p=>p.total),
+        backgroundColor:d.map(p=>(p.team_color||'#60a5fa')+'BB'),
+        borderColor:d.map(p=>p.team_color||'#60a5fa'),
+        borderWidth:1,borderRadius:4 }]
+    },
+    options:{ responsive:true,indexAxis:'y',
+      plugins:{ legend:{display:false},
+        tooltip:{...tt(),callbacks:{ afterLabel:ctx=>'  '+d[ctx.dataIndex].team }} },
+      scales:{ x:{grid:{color:DARK.grid},ticks:{color:'#adb5bd'}},
+               y:{grid:{color:'transparent'},ticks:{color:'#e2e8f0',font:{size:11,weight:600}}} } }
+  });
+}
+
+async function loadAllNFL() {
+  await Promise.all([
+    loadPassers(),
+    loadTeamWins(),
+    loadScoreDist(),
+    loadWeeklyTrend(),
+    loadRushers(),
+    loadReceivers(),
+  ]);
+}
+
+// Season pill buttons
+document.querySelectorAll('#nfl-season-btns .pill-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#nfl-season-btns .pill-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    nflSeason = btn.dataset.val;
+    loadAllNFL();
+  });
+});
+
+// ── INIT ─────────────────────────────────────────
+(async () => {
+  // Detect available seasons from standings to set the pill buttons
+  try {
+    const resp = await fetch('/api/games/standings').then(r=>r.json());
+    const allTeams = Object.values(resp).flatMap(d=>Object.values(d)).flat();
+    // seasons are embedded in the season buttons from Jinja; just pick current default
+  } catch(e){}
+
+  loadBettingSnapshot();
+  loadAllNFL();
+})();
+</script>
+{% endblock %}

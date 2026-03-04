@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Schedule{% endblock %}
+{% block content %}
+
+{# ── Header + filters ── #}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <h2 class="fw-black mb-0" style="letter-spacing:-.02em;">
+    <i class="bi bi-calendar3" style="color:#ffc107;"></i> NFL Schedule
+  </h2>
+  <form class="d-flex flex-wrap gap-2 align-items-center">
+    <select name="season" class="form-select form-select-sm sched-select">
+      <option value="">All Seasons</option>
+      {% for s in seasons %}
+      <option value="{{ s }}" {{ 'selected' if current_season == s }}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <select name="week" class="form-select form-select-sm sched-select" style="width:115px;">
+      <option value="">All Weeks</option>
+      {% for w in weeks %}
+      <option value="{{ w }}" {{ 'selected' if current_week == w }}>Week {{ w }}</option>
+      {% endfor %}
+    </select>
+    <select name="team_id" class="form-select form-select-sm sched-select" style="width:150px;">
+      <option value="">All Teams</option>
+      {% for t in teams %}
+      <option value="{{ t.id }}" {{ 'selected' if current_team == t.id }}>{{ t.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-warning btn-sm fw-bold px-3">Go</button>
+    {% if current_week or current_season or current_team %}
+    <a href="{{ url_for('schedules.index') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+{% if not games %}
+<div class="text-center py-5" style="color:rgba(255,255,255,.25);">
+  <i class="bi bi-calendar-x d-block mb-3" style="font-size:2.5rem;"></i>
+  No games found.
+  <a href="{{ url_for('admin.sync') }}" class="text-warning">Sync schedule</a> first.
+</div>
+
+{% else %}
+
+{# ── Group games by week ── #}
+{% set ns = namespace(cur_week=none, cur_season=none) %}
+{% for game in games %}
+
+  {# Week header whenever week or season changes #}
+  {% if game.week != ns.cur_week or game.season_year != ns.cur_season %}
+    {% if not loop.first %}</div>{% endif %}  {# close previous week grid #}
+    {% set ns.cur_week = game.week %}
+    {% set ns.cur_season = game.season_year %}
+
+    <div class="d-flex align-items-center gap-3 mt-4 mb-3">
+      <span class="fw-black text-uppercase"
+            style="font-size:.72rem;letter-spacing:.15em;color:rgba(255,255,255,.9);white-space:nowrap;">
+        {% if game.week %}Week {{ game.week }}{% else %}TBD{% endif %}
+        {% if game.season_type and game.season_type not in ['Regular', 'Regular Season'] %}
+        &nbsp;<span style="color:#ffc107;">· {{ game.season_type }}</span>
+        {% endif %}
+      </span>
+      <div style="height:1px;flex:1;background:rgba(255,255,255,.09);"></div>
+      {% if game.season_year %}
+      <span style="font-size:.65rem;color:rgba(255,255,255,.3);letter-spacing:.05em;">{{ game.season_year }}</span>
+      {% endif %}
+    </div>
+    <div class="row g-3">
+  {% endif %}
+
+  {# ── Game card ── #}
+  {% set ht = game.home_team %}
+  {% set at = game.away_team %}
+  {% set hc = ht.primary_color if ht and ht.primary_color else '#444' %}
+  {% set ac = at.primary_color if at and at.primary_color else '#444' %}
+  {% set is_final = game.status and 'final' in game.status | lower %}
+  {% set is_live  = game.status and ('progress' in game.status | lower or 'live' in game.status | lower) %}
+  {% set home_wins = is_final and game.home_score is not none and game.away_score is not none and game.home_score > game.away_score %}
+  {% set away_wins = is_final and game.home_score is not none and game.away_score is not none and game.away_score > game.home_score %}
+
+  <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+    <a href="{{ url_for('schedules.game_detail', game_id=game.id) }}"
+       class="text-decoration-none d-block h-100">
+    <div class="sched-card h-100"
+         style="border-radius:12px;overflow:hidden;background:#111820;
+                border:1px solid rgba(255,255,255,.09);display:flex;flex-direction:column;">
+
+      {# Top accent bar — split home/away colors #}
+      <div style="height:3px;background:linear-gradient(to right, {{ ac }} 50%, {{ hc }} 50%);"></div>
+
+      {# Status row #}
+      <div class="d-flex align-items-center justify-content-between px-3 pt-2 pb-1">
+        <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+                     color:rgba(255,255,255,.35);">
+          {% if game.week %}W{{ game.week }}{% endif %}
+        </span>
+        <span class="sched-status
+          {% if is_final %}status-final{% elif is_live %}status-live{% else %}status-sched{% endif %}">
+          {{ game.status or 'Scheduled' }}
+        </span>
+      </div>
+
+      {# ── Matchup row ── #}
+      <div class="d-flex align-items-center px-3 py-3 gap-2" style="flex:1;">
+
+        {# Away team #}
+        <div class="d-flex flex-column align-items-center" style="flex:1;min-width:0;">
+          {# Logo #}
+          <div style="width:48px;height:48px;margin-bottom:6px;">
+            {% if at and at.logo_url %}
+            <img src="{{ at.logo_url }}" alt="{{ at.abbreviation }}"
+                 style="width:48px;height:48px;object-fit:contain;
+                        opacity:{% if away_wins %}1{% elif home_wins %}0.45{% else %}0.85{% endif %};">
+            {% else %}
+            <div style="width:48px;height:48px;background:rgba(255,255,255,.05);border-radius:8px;"></div>
+            {% endif %}
+          </div>
+          {# Abbr #}
+          <div style="font-size:.9rem;font-weight:900;letter-spacing:-.01em;
+                      color:{% if away_wins %}#fff{% elif home_wins %}rgba(255,255,255,.35){% else %}rgba(255,255,255,.85){% endif %};">
+            {{ at.abbreviation if at else '?' }}
+          </div>
+          {# Score #}
+          {% if game.away_score is not none %}
+          <div style="font-size:1.75rem;font-weight:900;line-height:1.1;margin-top:2px;
+                      color:{% if away_wins %}#fff{% elif home_wins %}rgba(255,255,255,.3){% else %}rgba(255,255,255,.75){% endif %};">
+            {{ game.away_score }}
+          </div>
+          {% endif %}
+        </div>
+
+        {# VS divider #}
+        <div class="text-center flex-shrink-0" style="width:32px;">
+          {% if is_final %}
+          <div style="font-size:.65rem;font-weight:700;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.08em;">FNL</div>
+          {% elif is_live %}
+          <div class="live-dot"></div>
+          {% else %}
+          <div style="font-size:.7rem;color:rgba(255,255,255,.2);font-weight:600;">@</div>
+          {% endif %}
+        </div>
+
+        {# Home team #}
+        <div class="d-flex flex-column align-items-center" style="flex:1;min-width:0;">
+          <div style="width:48px;height:48px;margin-bottom:6px;">
+            {% if ht and ht.logo_url %}
+            <img src="{{ ht.logo_url }}" alt="{{ ht.abbreviation }}"
+                 style="width:48px;height:48px;object-fit:contain;
+                        opacity:{% if home_wins %}1{% elif away_wins %}0.45{% else %}0.85{% endif %};">
+            {% else %}
+            <div style="width:48px;height:48px;background:rgba(255,255,255,.05);border-radius:8px;"></div>
+            {% endif %}
+          </div>
+          <div style="font-size:.9rem;font-weight:900;letter-spacing:-.01em;
+                      color:{% if home_wins %}#fff{% elif away_wins %}rgba(255,255,255,.35){% else %}rgba(255,255,255,.85){% endif %};">
+            {{ ht.abbreviation if ht else '?' }}
+          </div>
+          {% if game.home_score is not none %}
+          <div style="font-size:1.75rem;font-weight:900;line-height:1.1;margin-top:2px;
+                      color:{% if home_wins %}#fff{% elif away_wins %}rgba(255,255,255,.3){% else %}rgba(255,255,255,.75){% endif %};">
+            {{ game.home_score }}
+          </div>
+          {% endif %}
+        </div>
+
+      </div>
+
+      {# Footer: date + broadcast #}
+      <div class="px-3 pb-3" style="border-top:1px solid rgba(255,255,255,.05);padding-top:8px;">
+        <div style="font-size:.7rem;color:rgba(255,255,255,.5);font-weight:600;">
+          {{ game.game_date.strftime('%a, %b %-d · %-I:%M %p') if game.game_date else '—' }}
+        </div>
+        {% if game.broadcast %}
+        <div style="font-size:.65rem;color:rgba(255,255,255,.28);margin-top:2px;text-transform:uppercase;letter-spacing:.06em;">
+          {{ game.broadcast }}
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+    </a>
+  </div>
+
+{% endfor %}
+</div>{# close last week grid #}
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.sched-select {
+  background: #111820;
+  border-color: rgba(255,255,255,.15);
+  color: #fff;
+  width: auto;
+}
+.sched-select option { background: #111820; }
+
+.sched-card { transition: transform .15s, border-color .15s; }
+.sched-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255,255,255,.2) !important;
+}
+
+/* Status chips */
+.sched-status {
+  font-size: .58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 2px 8px;
+  border-radius: 50px;
+}
+.status-final { background: rgba(74,222,128,.15); color: #4ade80; }
+.status-live  { background: rgba(251,191,36,.18); color: #fbbf24; }
+.status-sched { background: rgba(255,255,255,.07); color: rgba(255,255,255,.45); }
+
+/* Live pulse dot */
+.live-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #fbbf24;
+  margin: 0 auto;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .5; transform: scale(.7); }
+}
+</style>
+{% endblock %}

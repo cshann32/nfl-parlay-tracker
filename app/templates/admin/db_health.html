@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}DB Health — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-2 mb-4">
+  <a href="{{ url_for('admin.index') }}" class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1">
+    <i class="bi bi-arrow-left"></i> Admin
+  </a>
+</div>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <div style="width:40px;height:40px;border-radius:10px;background:rgba(168,85,247,.15);
+              border:1px solid rgba(168,85,247,.25);display:flex;align-items:center;justify-content:center;">
+    <i class="bi bi-database-fill" style="color:#a855f7;font-size:1.1rem;"></i>
+  </div>
+  <div>
+    <h2 class="fw-black mb-0" style="font-size:1.4rem;letter-spacing:-.02em;">Database Health</h2>
+    <div style="font-size:.75rem;color:rgba(255,255,255,.35);">{{ stats.total_tables }} tables</div>
+  </div>
+  <div class="ms-auto">
+    <a href="{{ url_for('admin.db_audit') }}"
+       class="btn btn-sm"
+       style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);
+              color:#ef4444;font-size:.78rem;font-weight:600;border-radius:7px;padding:.4rem 1rem;">
+      <i class="bi bi-shield-exclamation me-1"></i>Run Audit
+    </a>
+  </div>
+</div>
+
+<div class="rounded-3 mb-4 overflow-hidden"
+     style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="px-4 py-3" style="border-bottom:1px solid rgba(255,255,255,.06);">
+    <span class="fw-semibold text-white" style="font-size:.88rem;">Table Overview</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="dbTable">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(168,85,247,.15);">
+          <th class="ps-4 py-2" style="color:rgba(255,255,255,.4);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;">Table</th>
+          <th class="py-2" style="color:rgba(255,255,255,.4);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;">Rows</th>
+          <th class="py-2" style="color:rgba(255,255,255,.4);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600;">Columns</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in stats.tables %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+          <td class="ps-4 py-2 fw-semibold text-white" style="font-size:.85rem;font-family:monospace;">{{ t.table }}</td>
+          <td class="py-2 fw-bold" style="color:#a855f7;font-size:.85rem;">{{ t.rows }}</td>
+          <td class="py-2" style="color:rgba(255,255,255,.5);font-size:.85rem;">{{ t.columns }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="rounded-3 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="px-4 py-3 d-flex align-items-center gap-2" style="border-bottom:1px solid rgba(255,255,255,.06);">
+    <i class="bi bi-terminal-fill" style="color:#a855f7;font-size:.9rem;"></i>
+    <span class="fw-semibold text-white" style="font-size:.88rem;">Raw SQL Console</span>
+    <span class="ms-auto" style="font-size:.7rem;color:rgba(255,193,7,.7);">
+      <i class="bi bi-exclamation-triangle me-1"></i>Admin only — runs directly against the database
+    </span>
+  </div>
+  <div class="p-4">
+    <textarea id="sqlInput" rows="3" placeholder="SELECT * FROM teams LIMIT 5;"
+              style="width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(168,85,247,.25);
+                     border-radius:8px;color:#a0f0a0;font-family:'Courier New',monospace;
+                     font-size:.82rem;padding:.75rem 1rem;resize:vertical;outline:none;"
+              onfocus="this.style.borderColor='#a855f7'"
+              onblur="this.style.borderColor='rgba(168,85,247,.25)'"></textarea>
+    <div class="d-flex gap-2 mt-3">
+      <button onclick="runSQL()"
+              class="btn"
+              style="background:rgba(168,85,247,.2);border:1px solid rgba(168,85,247,.4);
+                     color:#a855f7;font-weight:700;font-size:.82rem;padding:.45rem 1.2rem;border-radius:7px;">
+        <i class="bi bi-play-fill me-1"></i>Execute SQL
+      </button>
+      <button onclick="document.getElementById('sqlInput').value='';document.getElementById('sqlResult').textContent='';"
+              class="btn btn-outline-secondary btn-sm" style="font-size:.8rem;">
+        Clear
+      </button>
+    </div>
+    <pre id="sqlResult"
+         style="margin-top:1rem;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.08);
+                border-radius:8px;padding:1rem;font-size:.78rem;color:#a0f0a0;
+                max-height:300px;overflow-y:auto;font-family:'Courier New',monospace;min-height:48px;"></pre>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+#dbTable td, #dbTable th { background:transparent !important; color:inherit; border:none; }
+.dataTables_wrapper .dataTables_filter input,
+.dataTables_wrapper .dataTables_length select {
+  background:rgba(255,255,255,.06) !important; border:1px solid rgba(255,255,255,.1) !important;
+  color:#fff !important; border-radius:6px !important; padding:.3rem .6rem !important;
+}
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate { color:rgba(255,255,255,.4) !important; font-size:.78rem; }
+.dataTables_wrapper .dataTables_paginate .paginate_button { color:rgba(255,255,255,.4) !important; }
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background:rgba(168,85,247,.2) !important; border-color:rgba(168,85,247,.4) !important;
+  color:#a855f7 !important; border-radius:5px;
+}
+</style>
+<script>
+$(document).ready(function(){
+  $('#dbTable').DataTable({ paging:false, order:[[1,'desc']] });
+});
+function runSQL() {
+  const sql = document.getElementById('sqlInput').value.trim();
+  if (!sql) return;
+  document.getElementById('sqlResult').textContent = 'Running…';
+  fetch('/admin/db/sql', {
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'sql=' + encodeURIComponent(sql)
+  })
+  .then(r => r.json())
+  .then(d => { document.getElementById('sqlResult').textContent = JSON.stringify(d, null, 2); })
+  .catch(e => { document.getElementById('sqlResult').textContent = 'Error: ' + e; });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,739 @@
+{% extends "base.html" %}
+{% block title %}Analytics Dashboard — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+{# ── Page header ── #}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0" style="letter-spacing:-.01em;">
+      <i class="bi bi-graph-up-arrow me-2" style="color:var(--sea-green);"></i>Analytics Dashboard
+    </h4>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      Parlay performance + NFL season stats — all from local DB
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('reports.index') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-folder2 me-1"></i>Saved Reports
+    </a>
+    <a href="{{ url_for('reports.create') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-plus me-1"></i>New Report
+    </a>
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════
+   SECTION 1 — MY PARLAY PERFORMANCE
+   ══════════════════════════════════════════════════════════ #}
+<div class="section-header mb-3">
+  <span class="sh-label"><i class="bi bi-cash-stack me-2"></i>My Parlay Performance</span>
+  <div class="sh-line"></div>
+</div>
+
+{# KPI cards #}
+<div class="row g-3 mb-4" id="parlay-kpi-row">
+  <div class="col-6 col-md-3">
+    <div class="rounded-3 p-3 text-center" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="kpi-label">Total Parlays</div>
+      <div class="kpi-value" id="kpi-total">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="rounded-3 p-3 text-center" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="kpi-label">Win Rate</div>
+      <div class="kpi-value" id="kpi-winrate" style="color:#69BE28;">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="rounded-3 p-3 text-center" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="kpi-label">Net P&L</div>
+      <div class="kpi-value" id="kpi-pl">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="rounded-3 p-3 text-center" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="kpi-label">ROI</div>
+      <div class="kpi-value" id="kpi-roi">—</div>
+    </div>
+  </div>
+</div>
+
+{# P&L + Win Rate row #}
+<div class="row g-3 mb-3">
+  <div class="col-12 col-lg-7">
+    <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="chart-title">Cumulative P&L Over Time</div>
+      <canvas id="plChart" height="180"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-lg-5">
+    <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="chart-title">Win Rate by Week</div>
+      <canvas id="winRateChart" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+{# Bet type + Results doughnut row #}
+<div class="row g-3 mb-5">
+  <div class="col-12 col-lg-8">
+    <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="chart-title">Win Rate by Bet Type</div>
+      <canvas id="betTypeChart" height="160"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="rounded-3 p-3 d-flex flex-column align-items-center justify-content-center"
+         style="background:#111820;border:1px solid rgba(255,255,255,.08);min-height:220px;">
+      <div class="chart-title w-100">Results Breakdown</div>
+      <canvas id="resultsDonut" style="max-width:200px;max-height:200px;"></canvas>
+    </div>
+  </div>
+</div>
+
+
+{# ══════════════════════════════════════════════════════════
+   SECTION 2 — NFL STAT LEADERS
+   ══════════════════════════════════════════════════════════ #}
+<div class="section-header mb-3">
+  <span class="sh-label"><i class="bi bi-trophy me-2"></i>NFL Stat Leaders</span>
+  <div class="sh-line"></div>
+</div>
+
+{# Season + Stat controls #}
+<div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+  <div class="d-flex align-items-center gap-2">
+    <label class="ctrl-label">Season</label>
+    <div class="d-flex gap-1" id="leaders-season-btns">
+      {% for s in seasons %}
+      <button class="season-btn {% if loop.first %}active{% endif %}" data-season="{{ s }}">{{ s }}</button>
+      {% else %}
+      <button class="season-btn active" data-season="2025">2025</button>
+      <button class="season-btn" data-season="2024">2024</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <label class="ctrl-label">Category</label>
+    <div class="d-flex gap-1 flex-wrap" id="leaders-cat-btns">
+      <button class="cat-btn active" data-cat="passing" data-default-stat="YDS">Passing</button>
+      <button class="cat-btn" data-cat="rushing" data-default-stat="YDS">Rushing</button>
+      <button class="cat-btn" data-cat="receiving" data-default-stat="YDS">Receiving</button>
+      <button class="cat-btn" data-cat="defensive" data-default-stat="TOT">Defense</button>
+      <button class="cat-btn" data-cat="kicking" data-default-stat="FGM">Kicking</button>
+    </div>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <label class="ctrl-label">Stat</label>
+    <select id="leaders-stat-sel" class="ctrl-select">
+      <option value="YDS">Yards</option>
+      <option value="TD">TDs</option>
+      <option value="CMP">Completions</option>
+      <option value="ATT">Attempts</option>
+      <option value="INT">INTs</option>
+      <option value="RTG">Rating</option>
+    </select>
+  </div>
+</div>
+
+<div class="row g-3 mb-5">
+  <div class="col-12 col-lg-8">
+    <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="chart-title" id="leaders-chart-title">Passing Yards Leaders</div>
+      <div id="leaders-empty" class="text-center py-4" style="display:none;color:rgba(255,255,255,.3);font-size:.85rem;">
+        <i class="bi bi-bar-chart d-block mb-2" style="font-size:2rem;opacity:.3;"></i>
+        No data for this stat/season combination.
+      </div>
+      <canvas id="leadersChart" height="260"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="rounded-3 p-3 h-100" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="chart-title">Top 12 Players</div>
+      <div id="leaders-list" style="font-size:.82rem;"></div>
+    </div>
+  </div>
+</div>
+
+
+{# ══════════════════════════════════════════════════════════
+   SECTION 3 — TEAM RANKINGS
+   ══════════════════════════════════════════════════════════ #}
+<div class="section-header mb-3">
+  <span class="sh-label"><i class="bi bi-shield-fill me-2"></i>Team Rankings</span>
+  <div class="sh-line"></div>
+</div>
+
+<div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+  <div class="d-flex align-items-center gap-2">
+    <label class="ctrl-label">Season</label>
+    <div class="d-flex gap-1" id="teams-season-btns">
+      {% for s in seasons %}
+      <button class="season-btn {% if loop.first %}active{% endif %}" data-season="{{ s }}">{{ s }}</button>
+      {% else %}
+      <button class="season-btn active" data-season="2025">2025</button>
+      <button class="season-btn" data-season="2024">2024</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <label class="ctrl-label">Category</label>
+    <select id="teams-cat-sel" class="ctrl-select">
+      <option value="passing">Passing</option>
+      <option value="rushing">Rushing</option>
+      <option value="receiving">Receiving</option>
+      <option value="defensive">Defensive</option>
+      <option value="scoring">Scoring</option>
+    </select>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <label class="ctrl-label">Stat</label>
+    <select id="teams-stat-sel" class="ctrl-select">
+      <option value="YDS">Yards</option>
+      <option value="TD">TDs</option>
+      <option value="ATT">Attempts</option>
+    </select>
+  </div>
+</div>
+
+<div class="row g-3 mb-5">
+  <div class="col-12">
+    <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="chart-title" id="teams-chart-title">Team Passing Yards</div>
+      <div id="teams-empty" class="text-center py-4" style="display:none;color:rgba(255,255,255,.3);font-size:.85rem;">
+        <i class="bi bi-shield d-block mb-2" style="font-size:2rem;opacity:.3;"></i>
+        No team data for this selection.
+      </div>
+      <canvas id="teamsChart" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.kpi-label {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+  margin-bottom: 4px;
+}
+.kpi-value {
+  font-family: 'Bebas Neue', 'Barlow Condensed', sans-serif;
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 700;
+  color: #fff;
+}
+.chart-title {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+  margin-bottom: 10px;
+}
+.season-btn {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.5);
+  padding: 3px 12px;
+  border-radius: 50px;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .12s;
+}
+.season-btn:hover:not(.active) { background: rgba(255,255,255,.12); color: #fff; }
+.season-btn.active { background: var(--sea-green); border-color: var(--sea-green); color: #001a0a; }
+.cat-btn {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.5);
+  padding: 3px 12px;
+  border-radius: 50px;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .12s;
+}
+.cat-btn:hover:not(.active) { background: rgba(255,255,255,.12); color: #fff; }
+.cat-btn.active { background: #ffc107; border-color: #ffc107; color: #000; }
+.ctrl-label {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+  white-space: nowrap;
+}
+.ctrl-select {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: .82rem;
+  cursor: pointer;
+}
+.ctrl-select:focus { outline: none; border-color: var(--sea-green); }
+.ldr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.ldr-row:last-child { border-bottom: none; }
+.ldr-rank { font-size: .68rem; font-weight: 700; color: rgba(255,255,255,.3); min-width: 18px; }
+.ldr-name { flex: 1; color: #e2e8f0; font-weight: 600; font-size: .82rem; }
+.ldr-team { font-size: .65rem; color: rgba(255,255,255,.4); }
+.ldr-val { font-weight: 700; font-size: .88rem; color: #fff; min-width: 40px; text-align: right; }
+</style>
+
+<script>
+// ── Chart defaults ──────────────────────────────────────────
+const DARK = {
+  color: '#adb5bd',
+  grid:  'rgba(255,255,255,0.05)',
+  tooltip: { bg: '#1a1a2e', border: '#2a2a4a' },
+};
+Chart.defaults.color = DARK.color;
+Chart.defaults.font.family = "'Barlow Condensed', 'Segoe UI', sans-serif";
+
+function baseScales(xTitle='', yTitle='') {
+  return {
+    x: { grid: { color: DARK.grid }, ticks: { color: DARK.color },
+         title: xTitle ? { display:true, text:xTitle, color:DARK.color } : {} },
+    y: { grid: { color: DARK.grid }, ticks: { color: DARK.color },
+         title: yTitle ? { display:true, text:yTitle, color:DARK.color } : {} },
+  };
+}
+function baseTooltip() {
+  return { backgroundColor: DARK.tooltip.bg, borderColor: DARK.tooltip.border, borderWidth:1, titleColor:'#fff', bodyColor:'#ccc' };
+}
+
+// ── Utility ─────────────────────────────────────────────────
+const fmtMoney = v => (v >= 0 ? '+' : '') + '$' + Math.abs(v).toFixed(2);
+const fmtNum   = v => Number.isInteger(v) ? v : v.toFixed(1);
+
+let charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+
+// ═══════════════════════════════════════════════════════════
+// SECTION 1 — PARLAY PERFORMANCE
+// ═══════════════════════════════════════════════════════════
+
+async function loadParlaySection() {
+  // KPIs
+  try {
+    const a = await fetch('/api/parlay/analytics').then(r => r.json());
+    document.getElementById('kpi-total').textContent   = a.total ?? '—';
+    document.getElementById('kpi-winrate').textContent = a.win_rate != null ? a.win_rate + '%' : '—';
+    const plEl = document.getElementById('kpi-pl');
+    plEl.textContent = a.net_pl != null ? fmtMoney(a.net_pl) : '—';
+    plEl.style.color  = a.net_pl >= 0 ? '#4ade80' : '#f87171';
+    const roiEl = document.getElementById('kpi-roi');
+    roiEl.textContent = a.roi != null ? a.roi + '%' : '—';
+    roiEl.style.color  = a.roi >= 0 ? '#4ade80' : '#f87171';
+
+    // Results doughnut
+    renderResultsDonut(a.won ?? 0, a.lost ?? 0, a.push ?? 0);
+  } catch(e) { console.warn('Parlay analytics error:', e); }
+
+  // Cumulative P&L
+  try {
+    const pl = await fetch('/api/parlay/pl-over-time').then(r => r.json());
+    renderPlChart(pl);
+  } catch(e) { console.warn('P&L chart error:', e); }
+
+  // Win rate by week
+  try {
+    const wr = await fetch('/api/parlay/win-rate-by-week').then(r => r.json());
+    renderWinRateChart(wr);
+  } catch(e) { console.warn('Win rate chart error:', e); }
+
+  // Bet type
+  try {
+    const bt = await fetch('/api/parlay/bet-type-breakdown').then(r => r.json());
+    renderBetTypeChart(bt);
+  } catch(e) { console.warn('Bet type chart error:', e); }
+}
+
+function renderPlChart(data) {
+  if (!data.length) return;
+  destroyChart('plChart');
+  const labels = data.map(d => d.date);
+  const vals   = data.map(d => d.cumulative_pl);
+  const ctx = document.getElementById('plChart').getContext('2d');
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+  gradient.addColorStop(0, 'rgba(105,190,40,0.35)');
+  gradient.addColorStop(1, 'rgba(105,190,40,0)');
+
+  charts['plChart'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Cumulative P&L',
+        data: vals,
+        borderColor: '#69BE28',
+        backgroundColor: gradient,
+        borderWidth: 2,
+        pointRadius: data.length > 40 ? 0 : 3,
+        pointHoverRadius: 5,
+        tension: 0.3,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { ...baseTooltip(),
+        callbacks: { label: ctx => ' ' + fmtMoney(ctx.parsed.y) }
+      }},
+      scales: {
+        x: { grid: { color: DARK.grid }, ticks: { color: DARK.color, maxTicksLimit: 8 } },
+        y: { grid: { color: DARK.grid }, ticks: { color: DARK.color,
+              callback: v => '$' + v.toFixed(0) } },
+      },
+    }
+  });
+}
+
+function renderWinRateChart(data) {
+  if (!data.length) return;
+  destroyChart('winRateChart');
+  charts['winRateChart'] = new Chart(
+    document.getElementById('winRateChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.week),
+      datasets: [{
+        label: 'Win %',
+        data: data.map(d => d.win_rate),
+        backgroundColor: data.map(d => d.win_rate >= 50 ? 'rgba(105,190,40,.7)' : 'rgba(248,113,113,.7)'),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { ...baseTooltip(),
+        callbacks: { label: ctx => ' ' + ctx.parsed.y + '%' }
+      }},
+      scales: {
+        x: { grid: { color: DARK.grid }, ticks: { color: DARK.color, maxTicksLimit: 8 } },
+        y: { grid: { color: DARK.grid }, ticks: { color: DARK.color,
+              callback: v => v + '%' }, min: 0, max: 100 },
+      },
+    }
+  });
+}
+
+function renderBetTypeChart(data) {
+  if (!data.length) return;
+  destroyChart('betTypeChart');
+  const labels = data.map(d => d.type.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()));
+  charts['betTypeChart'] = new Chart(
+    document.getElementById('betTypeChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Win Rate %', data: data.map(d => d.win_rate),
+          backgroundColor: 'rgba(105,190,40,.75)', borderRadius: 4 },
+        { label: 'Total Legs', data: data.map(d => d.total),
+          backgroundColor: 'rgba(255,255,255,.12)', borderRadius: 4,
+          yAxisID: 'y2' },
+      ]
+    },
+    options: {
+      responsive: true,
+      indexAxis: 'y',
+      plugins: { legend: { labels: { color: DARK.color } }, tooltip: { ...baseTooltip() } },
+      scales: {
+        x:  { grid: { color: DARK.grid }, ticks: { color: DARK.color, callback: v => v + '%' } },
+        x2: { display: false },
+        y:  { grid: { color: DARK.grid }, ticks: { color: DARK.color } },
+        y2: { display: false },
+      },
+    }
+  });
+}
+
+function renderResultsDonut(won, lost, push) {
+  destroyChart('resultsDonut');
+  if (!won && !lost && !push) return;
+  charts['resultsDonut'] = new Chart(
+    document.getElementById('resultsDonut').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Won', 'Lost', 'Push'],
+      datasets: [{
+        data: [won, lost, push],
+        backgroundColor: ['rgba(105,190,40,.85)', 'rgba(248,113,113,.8)', 'rgba(255,255,255,.2)'],
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      cutout: '70%',
+      plugins: {
+        legend: { position: 'bottom', labels: { color: DARK.color, boxWidth: 12, padding: 12 } },
+        tooltip: { ...baseTooltip() },
+      },
+    }
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// SECTION 2 — STAT LEADERS
+// ═══════════════════════════════════════════════════════════
+
+const STAT_OPTIONS = {
+  passing:   [['YDS','Yards'],['TD','TDs'],['CMP','Completions'],['ATT','Attempts'],['INT','INTs'],['RTG','Rating']],
+  rushing:   [['YDS','Yards'],['TD','TDs'],['CAR','Carries'],['AVG','Avg/Car'],['LNG','Long']],
+  receiving: [['YDS','Yards'],['REC','Receptions'],['TD','TDs'],['TGTS','Targets'],['AVG','Avg/Rec'],['LNG','Long']],
+  defensive: [['TOT','Total Tackles'],['SOLO','Solo Tackles'],['SCK','Sacks'],['TFL','Tackles for Loss'],['PD','Pass Def'],['FF','Forced Fum']],
+  kicking:   [['FGM','FG Made'],['FGA','FG Att'],['XPM','XP Made'],['LK','Long']],
+};
+
+const CAT_LABELS = {
+  passing:'Passing', rushing:'Rushing', receiving:'Receiving',
+  defensive:'Defense', kicking:'Kicking',
+};
+
+let leadersState = {
+  season: document.querySelector('#leaders-season-btns .season-btn.active')?.dataset.season || '2025',
+  cat: 'passing',
+  stat: 'YDS',
+};
+
+function updateStatSelector(cat, defaultStat) {
+  const sel = document.getElementById('leaders-stat-sel');
+  const opts = STAT_OPTIONS[cat] || [['YDS','Yards']];
+  sel.innerHTML = opts.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+  sel.value = defaultStat || opts[0][0];
+  leadersState.stat = sel.value;
+}
+
+async function loadLeaders() {
+  const { season, cat, stat } = leadersState;
+  const statLabel = (STAT_OPTIONS[cat] || []).find(([v]) => v === stat)?.[1] || stat;
+  document.getElementById('leaders-chart-title').textContent =
+    `${CAT_LABELS[cat] || cat} ${statLabel} Leaders — ${season}`;
+
+  const url = `/api/reports/stat-leaders?season=${season}&category=${cat}&stat_type=${stat}&limit=12`;
+  const data = await fetch(url).then(r => r.json()).catch(() => []);
+
+  const empty = document.getElementById('leaders-empty');
+  const canvas = document.getElementById('leadersChart');
+  if (!data.length) {
+    empty.style.display = '';
+    canvas.style.display = 'none';
+    document.getElementById('leaders-list').innerHTML =
+      '<p style="color:rgba(255,255,255,.25);font-size:.8rem;">No data available.</p>';
+    return;
+  }
+  empty.style.display = 'none';
+  canvas.style.display = '';
+
+  renderLeadersChart(data, statLabel);
+  renderLeadersList(data);
+}
+
+function renderLeadersChart(data, statLabel) {
+  destroyChart('leadersChart');
+  const labels = data.map(d => d.player);
+  const vals   = data.map(d => d.total);
+  const colors = data.map(d => (d.team_color || '#69BE28') + 'CC');
+  const borders= data.map(d => d.team_color || '#69BE28');
+
+  charts['leadersChart'] = new Chart(
+    document.getElementById('leadersChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: statLabel,
+        data: vals,
+        backgroundColor: colors,
+        borderColor: borders,
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: { ...baseTooltip(),
+        callbacks: {
+          afterLabel: ctx => '  ' + (data[ctx.dataIndex]?.team || ''),
+        }
+      }},
+      scales: {
+        x: { grid: { color: DARK.grid }, ticks: { color: DARK.color } },
+        y: { grid: { color: 'transparent' }, ticks: { color: '#e2e8f0', font: { weight: 600 } } },
+      },
+    }
+  });
+}
+
+function renderLeadersList(data) {
+  const html = data.slice(0, 12).map((d, i) => `
+    <div class="ldr-row">
+      <span class="ldr-rank">${i + 1}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="ldr-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.player}</div>
+        <span class="ldr-team" style="color:${d.team_color || '#6c757d'};">${d.team || ''}</span>
+      </div>
+      <span class="ldr-val">${fmtNum(d.total)}</span>
+    </div>`).join('');
+  document.getElementById('leaders-list').innerHTML = html;
+}
+
+// Season buttons (leaders)
+document.querySelectorAll('#leaders-season-btns .season-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#leaders-season-btns .season-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    leadersState.season = btn.dataset.season;
+    loadLeaders();
+  });
+});
+
+// Category buttons
+document.querySelectorAll('.cat-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    leadersState.cat = btn.dataset.cat;
+    updateStatSelector(btn.dataset.cat, btn.dataset.defaultStat);
+    loadLeaders();
+  });
+});
+
+// Stat type dropdown
+document.getElementById('leaders-stat-sel').addEventListener('change', e => {
+  leadersState.stat = e.target.value;
+  loadLeaders();
+});
+
+
+// ═══════════════════════════════════════════════════════════
+// SECTION 3 — TEAM RANKINGS
+// ═══════════════════════════════════════════════════════════
+
+const TEAM_STAT_OPTIONS = {
+  passing:   [['YDS','Yards'],['TD','TDs'],['ATT','Attempts'],['CMP','Completions']],
+  rushing:   [['YDS','Yards'],['TD','TDs'],['CAR','Carries'],['AVG','Avg/Car']],
+  receiving: [['YDS','Yards'],['REC','Receptions'],['TD','TDs']],
+  defensive: [['TOT','Total Tackles'],['SCK','Sacks'],['TFL','Tackles for Loss'],['PD','Pass Def']],
+  scoring:   [['PTS','Points'],['TD','TDs']],
+};
+
+let teamsState = {
+  season: document.querySelector('#teams-season-btns .season-btn.active')?.dataset.season || '2025',
+  cat: 'passing',
+  stat: 'YDS',
+};
+
+function updateTeamStatSel(cat) {
+  const sel = document.getElementById('teams-stat-sel');
+  const opts = TEAM_STAT_OPTIONS[cat] || [['YDS','Yards']];
+  sel.innerHTML = opts.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+  sel.value = opts[0][0];
+  teamsState.stat = sel.value;
+}
+
+async function loadTeamRankings() {
+  const { season, cat, stat } = teamsState;
+  const statLabel = (TEAM_STAT_OPTIONS[cat] || []).find(([v]) => v === stat)?.[1] || stat;
+  document.getElementById('teams-chart-title').textContent =
+    `Team ${CAT_LABELS[cat] || cat} — ${statLabel} — ${season}`;
+
+  const url = `/api/reports/team-rankings?season=${season}&category=${cat}&stat_type=${stat}`;
+  const data = await fetch(url).then(r => r.json()).catch(() => []);
+
+  const empty  = document.getElementById('teams-empty');
+  const canvas = document.getElementById('teamsChart');
+  if (!data.length) {
+    empty.style.display = '';
+    canvas.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  canvas.style.display = '';
+  renderTeamsChart(data, statLabel);
+}
+
+function renderTeamsChart(data, statLabel) {
+  destroyChart('teamsChart');
+  charts['teamsChart'] = new Chart(
+    document.getElementById('teamsChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.abbrev || d.team),
+      datasets: [{
+        label: statLabel,
+        data: data.map(d => d.total),
+        backgroundColor: data.map(d => (d.color || '#69BE28') + 'BB'),
+        borderColor:     data.map(d => d.color || '#69BE28'),
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { ...baseTooltip(),
+        callbacks: { afterLabel: ctx => '  ' + (data[ctx.dataIndex]?.team || '') }
+      }},
+      scales: {
+        x: { grid: { color: DARK.grid }, ticks: { color: '#e2e8f0', font: { weight: 600 } } },
+        y: { grid: { color: DARK.grid }, ticks: { color: DARK.color } },
+      },
+    }
+  });
+}
+
+// Season buttons (teams)
+document.querySelectorAll('#teams-season-btns .season-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#teams-season-btns .season-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    teamsState.season = btn.dataset.season;
+    loadTeamRankings();
+  });
+});
+
+document.getElementById('teams-cat-sel').addEventListener('change', e => {
+  teamsState.cat = e.target.value;
+  updateTeamStatSel(e.target.value);
+  loadTeamRankings();
+});
+
+document.getElementById('teams-stat-sel').addEventListener('change', e => {
+  teamsState.stat = e.target.value;
+  loadTeamRankings();
+});
+
+
+// ═══════════════════════════════════════════════════════════
+// INIT — load all sections
+// ═══════════════════════════════════════════════════════════
+(async () => {
+  await loadParlaySection();
+  await loadLeaders();
+  await loadTeamRankings();
+})();
+</script>
+{% endblock %}

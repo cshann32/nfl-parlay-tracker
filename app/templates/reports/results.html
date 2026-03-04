@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ report.name }} — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('reports.index') }}" class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1">
+      <i class="bi bi-arrow-left"></i> Reports
+    </a>
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-file-earmark-bar-graph" style="color:#69BE28;font-size:1rem;"></i>
+      <span class="fw-black" style="font-size:1.1rem;letter-spacing:-.01em;">{{ report.name }}</span>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('reports.export_csv', report_id=report.id) }}"
+       class="btn btn-sm"
+       style="background:rgba(105,190,40,.12);border:1px solid rgba(105,190,40,.25);
+              color:#69BE28;font-size:.8rem;font-weight:600;padding:.4rem .9rem;border-radius:7px;">
+      <i class="bi bi-filetype-csv me-1"></i>CSV
+    </a>
+    <a href="{{ url_for('reports.export_pdf', report_id=report.id) }}"
+       class="btn btn-sm"
+       style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+              color:rgba(255,255,255,.7);font-size:.8rem;font-weight:600;padding:.4rem .9rem;border-radius:7px;">
+      <i class="bi bi-filetype-pdf me-1"></i>PDF
+    </a>
+  </div>
+</div>
+
+<div class="rounded-3 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="px-4 py-3 d-flex align-items-center gap-2" style="border-bottom:1px solid rgba(255,255,255,.06);">
+    <i class="bi bi-table" style="color:#69BE28;font-size:.9rem;"></i>
+    <span class="fw-semibold text-white" style="font-size:.88rem;">Results</span>
+    <span class="ms-auto" style="font-size:.72rem;color:rgba(255,255,255,.3);">{{ data | length }} row{{ 's' if data | length != 1 }}</span>
+  </div>
+  {% if data %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0" id="resultsTable">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(105,190,40,.15);">
+          {% for k in data[0].keys() %}
+          <th class="ps-3 py-2" style="color:rgba(255,255,255,.4);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;">
+            {{ k | replace('_', ' ') | title }}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in data %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+          {% for v in row.values() %}
+          <td class="ps-3 py-2" style="font-size:.83rem;color:rgba(255,255,255,.75);">{{ v }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-5" style="color:rgba(255,255,255,.25);">
+    <i class="bi bi-inbox d-block mb-2" style="font-size:2rem;"></i>
+    No data returned for this report.
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+#resultsTable td, #resultsTable th { background:transparent !important; color:inherit; border:none; }
+.dataTables_wrapper .dataTables_filter input,
+.dataTables_wrapper .dataTables_length select {
+  background:rgba(255,255,255,.06) !important; border:1px solid rgba(255,255,255,.1) !important;
+  color:#fff !important; border-radius:6px !important; padding:.3rem .6rem !important;
+}
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate { color:rgba(255,255,255,.4) !important; font-size:.78rem; }
+.dataTables_wrapper .dataTables_paginate .paginate_button { color:rgba(255,255,255,.4) !important; }
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background:rgba(105,190,40,.2) !important; border-color:rgba(105,190,40,.4) !important;
+  color:#69BE28 !important; border-radius:5px;
+}
+</style>
+<script>$(document).ready(function(){ $('#resultsTable').DataTable(); });</script>
+{% endblock %}

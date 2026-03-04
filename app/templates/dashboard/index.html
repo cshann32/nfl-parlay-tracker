@@ -1,0 +1,1097 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+{# ── Beast Mode Hero Banner ─────────────────────────────────── #}
+<div class="bm-hero mb-4">
+  <div class="bm-hero-overlay">
+    <div class="bm-hero-content">
+      <div class="bm-hero-tag">SEATTLE SEAHAWKS · #24</div>
+      <div class="bm-hero-title">BEAST MODE</div>
+      <div class="bm-hero-sub">PARLAY TRACKER</div>
+      <div class="bm-hero-quote">"I'M JUST 'BOUT THAT ACTION, BOSS"</div>
+    </div>
+    <div class="bm-hero-kpis">
+      <div class="bm-kpi">
+        <div class="bm-kpi-val">{{ analytics.win_rate }}%</div>
+        <div class="bm-kpi-lbl">WIN RATE</div>
+      </div>
+      <div class="bm-kpi-divider"></div>
+      <div class="bm-kpi">
+        <div class="bm-kpi-val {{ 'bm-kpi-pos' if analytics.net_pl >= 0 else 'bm-kpi-neg' }}">
+          {{ '+' if analytics.net_pl >= 0 else '-' }}${{ "%.0f"|format(analytics.net_pl|abs) }}
+        </div>
+        <div class="bm-kpi-lbl">NET P&amp;L</div>
+      </div>
+      <div class="bm-kpi-divider"></div>
+      <div class="bm-kpi">
+        <div class="bm-kpi-val">{{ analytics.roi }}%</div>
+        <div class="bm-kpi-lbl">ROI</div>
+      </div>
+      <div class="bm-kpi-divider"></div>
+      <div class="bm-kpi">
+        <div class="bm-kpi-val">{{ analytics.total }}</div>
+        <div class="bm-kpi-lbl">BETS</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Stat cards row ─────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body py-3">
+        <div class="kpi-value">{{ analytics.win_rate }}%</div>
+        <div class="text-muted small mt-1">WIN RATE</div>
+        <div class="mt-1" style="font-size:.75rem;color:var(--sea-grey);">
+          {{ analytics.won }}W &ndash; {{ analytics.lost }}L &ndash; {{ analytics.push }}P
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body py-3">
+        <div class="kpi-value {{ 'text-profit' if analytics.net_pl >= 0 else 'text-loss' }}">
+          {{ '+' if analytics.net_pl >= 0 else '-' }}${{ "%.2f"|format(analytics.net_pl|abs) }}
+        </div>
+        <div class="text-muted small mt-1">NET P&amp;L</div>
+        <div class="mt-1" style="font-size:.75rem;color:var(--sea-grey);">
+          ${{ "%.2f"|format(analytics.total_wagered) }} wagered
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body py-3">
+        <div class="kpi-value">{{ analytics.roi }}%</div>
+        <div class="text-muted small mt-1">ROI</div>
+        <div class="mt-1" style="font-size:.75rem;color:var(--sea-grey);">
+          ${{ "%.2f"|format(analytics.total_payout) }} returned
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body py-3">
+        {% if analytics.streak.type %}
+        <div class="kpi-value {{ 'text-profit' if analytics.streak.type == 'won' else 'text-loss' }}">
+          {{ analytics.streak.count }}
+        </div>
+        <div class="text-muted small mt-1">{{ analytics.streak.type|upper }} STREAK</div>
+        {% else %}
+        <div class="kpi-value" style="color:var(--sea-grey);">—</div>
+        <div class="text-muted small mt-1">NO STREAK</div>
+        {% endif %}
+        <div class="mt-1" style="font-size:.75rem;color:var(--sea-grey);">{{ analytics.total }} total bets</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Season State Banner ──────────────────────────────────────── #}
+<div class="mb-3 d-flex align-items-center gap-2">
+  {% if season_state.state == "regular_season" %}
+    <span class="season-state-badge state-live">
+      <i class="bi bi-broadcast me-1"></i>REGULAR SEASON LIVE
+    </span>
+  {% elif season_state.state == "playoffs" %}
+    <span class="season-state-badge state-playoffs">
+      <i class="bi bi-trophy-fill me-1"></i>NFL PLAYOFFS
+    </span>
+  {% else %}
+    <span class="season-state-badge state-offseason">
+      <i class="bi bi-moon-stars-fill me-1"></i>OFF-SEASON
+    </span>
+  {% endif %}
+  <span style="font-size:.7rem;color:var(--sea-grey);letter-spacing:.06em;">{{ season_state.label }}</span>
+</div>
+
+{# ── Season Predictions Carousel ─────────────────────────────── #}
+{% if season_predictions %}
+<div class="pred-carousel-wrap mb-4">
+  <div class="pred-carousel-header">
+    <span class="pred-carousel-title">
+      <i class="bi bi-lightning-charge-fill" style="color:var(--sea-green);"></i>
+      {% if season_state.state == "regular_season" %}
+        {{ season_state.season_year }} SEASON POWER PICKS
+      {% elif season_state.state == "playoffs" %}
+        PLAYOFF PREDICTIONS · {{ season_state.season_year }}
+      {% else %}
+        {{ season_state.season_year + 1 }} SEASON PREDICTIONS
+      {% endif %}
+    </span>
+    <div class="d-flex align-items-center gap-3">
+      {% if season_state.state == "regular_season" %}
+        <span style="font-size:.6rem;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.3);">WEEK {{ season_state.current_week }}</span>
+      {% endif %}
+      <a href="{{ url_for('stats.predictions') }}" class="pred-carousel-link">FULL REPORT →</a>
+    </div>
+  </div>
+
+  <div id="seasonPredCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="6000">
+    {# Indicators #}
+    <div class="carousel-indicators pred-indicators">
+      {% for card in season_predictions %}
+      <button type="button" data-bs-target="#seasonPredCarousel" data-bs-slide-to="{{ loop.index0 }}"
+              {% if loop.first %}class="active"{% endif %}></button>
+      {% endfor %}
+    </div>
+
+    <div class="carousel-inner">
+      {% for card in season_predictions %}
+      <div class="carousel-item {% if loop.first %}active{% endif %}">
+        <div class="pred-card">
+          {# Left: icon + category #}
+          <div class="pred-card-left">
+            {% if card.player_img %}
+            <img src="{{ card.player_img }}" class="pred-card-avatar" alt="">
+            {% elif card.logo %}
+            <img src="{{ card.logo }}" class="pred-card-logo" alt="">
+            {% else %}
+            <div class="pred-card-icon-wrap" style="background:{{ card.color }}22;">
+              <i class="bi {{ card.icon }}" style="color:{{ card.color }};font-size:1.8rem;"></i>
+            </div>
+            {% endif %}
+            <div class="pred-card-badge" style="background:{{ card.color }}22;border-color:{{ card.color }}55;color:{{ card.color }};">
+              <i class="bi {{ card.icon }} me-1"></i>{{ card.category }}
+            </div>
+          </div>
+
+          {# Right: content #}
+          <div class="pred-card-right">
+            <div class="pred-card-headline">{{ card.headline }}</div>
+            {% if card.team_abbr is defined and card.team_abbr %}
+            <div class="pred-card-team">
+              {% if card.logo %}
+              <img src="{{ card.logo }}" style="width:16px;height:16px;object-fit:contain;margin-right:.3rem;">
+              {% endif %}
+              {{ card.team_abbr }}
+            </div>
+            {% endif %}
+            <div class="pred-card-subtext">{{ card.subtext }}</div>
+            <div class="pred-card-stat">
+              <i class="bi bi-bar-chart-fill me-1" style="color:{{ card.color }};font-size:.7rem;"></i>
+              {{ card.stat }}
+            </div>
+            <div class="pred-card-conf conf-{{ card.confidence | lower }}">
+              {% if card.confidence == 'High' %}<i class="bi bi-fire me-1"></i>High Confidence
+              {% elif card.confidence == 'Medium' %}<i class="bi bi-bullseye me-1"></i>Medium Confidence
+              {% else %}<i class="bi bi-question-circle me-1"></i>Speculative Pick
+              {% endif %}
+            </div>
+          </div>
+
+          {# Slide counter #}
+          <div class="pred-card-counter">{{ loop.index }}/{{ season_predictions | length }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <button class="carousel-control-prev pred-ctrl" type="button" data-bs-target="#seasonPredCarousel" data-bs-slide="prev">
+      <i class="bi bi-chevron-left"></i>
+    </button>
+    <button class="carousel-control-next pred-ctrl pred-ctrl-next" type="button" data-bs-target="#seasonPredCarousel" data-bs-slide="next">
+      <i class="bi bi-chevron-right"></i>
+    </button>
+  </div>
+</div>
+{% endif %}
+
+{# ── Charts + Beast Mode card ───────────────────────────────── #}
+<div class="row g-3 mb-4">
+  <div class="col-md-5">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between">
+        <span>Cumulative P&amp;L</span>
+        <span style="color:var(--sea-grey);font-size:.78rem;">All time</span>
+      </div>
+      <div class="card-body"><canvas id="plChart" height="140"></canvas></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100">
+      <div class="card-header">Win Rate by Week</div>
+      <div class="card-body"><canvas id="winRateChart" height="160"></canvas></div>
+    </div>
+  </div>
+  {# Beast Mode feature card #}
+  <div class="col-md-4">
+    <div class="bm-feature-card h-100">
+      <div class="bm-feature-overlay">
+        <div class="bm-feature-num">#24</div>
+        <div class="bm-feature-name">MARSHAWN<br>LYNCH</div>
+        <div class="bm-feature-tags">
+          <span class="bm-tag">RB</span>
+          <span class="bm-tag">SEAHAWKS</span>
+          <span class="bm-tag">BEAST MODE</span>
+        </div>
+        <a href="{{ url_for('parlays.create') }}" class="btn btn-sm bm-feature-btn mt-2">
+          <i class="bi bi-plus-circle-fill"></i> NEW PARLAY
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Bet Type Breakdown ──────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+  <div class="col-md-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-bar-chart-fill me-1" style="color:var(--sea-green);"></i>BET TYPE WIN RATE</span>
+        <span style="color:var(--sea-grey);font-size:.75rem;">by leg type</span>
+      </div>
+      <div class="card-body"><canvas id="betTypeChart" height="130"></canvas></div>
+    </div>
+  </div>
+  <div class="col-md-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-pie-chart-fill me-1" style="color:var(--sea-green);"></i>LEG DISTRIBUTION
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="legDistChart" height="150"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Prediction Report ───────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+
+  {# Game predictions: upcoming (in-season) OR predicted vs actual (offseason) #}
+  <div class="col-12 col-md-8">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span>
+          <i class="bi bi-lightning-charge-fill me-1" style="color:var(--sea-green);"></i>
+          {% if is_upcoming %}
+            {% if season_state.state == "playoffs" %}PLAYOFF PREDICTIONS{% else %}UPCOMING GAME PREDICTIONS · WK {{ season_state.current_week }}{% endif %}
+          {% else %}
+            {{ season_state.season_year }} PREDICTION REPORT · LAST 6 GAMES
+          {% endif %}
+        </span>
+        <a href="{{ url_for('stats.predictions') }}" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;color:var(--sea-green);text-decoration:none;">
+          FULL TOOL →
+        </a>
+      </div>
+      {% if game_preds %}
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr style="border-bottom:1px solid rgba(105,190,40,.12);">
+                <th class="ps-3 py-2" style="color:var(--sea-grey);font-size:.62rem;letter-spacing:.07em;">MATCHUP</th>
+                <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.62rem;letter-spacing:.07em;">PREDICTED</th>
+                <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.62rem;letter-spacing:.07em;">WIN PROB</th>
+                {% if not is_upcoming %}
+                <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.62rem;letter-spacing:.07em;">ACTUAL</th>
+                {% endif %}
+                <th class="pe-3 py-2 text-center" style="color:var(--sea-grey);font-size:.62rem;letter-spacing:.07em;">
+                  {% if is_upcoming %}PICK{% else %}RESULT{% endif %}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in game_preds %}
+              {% set g = item.game %}
+              {% set p = item.pred %}
+              {% set home_fav = p.margin >= 0 %}
+              <tr style="border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;"
+                  onclick="window.location='{{ url_for('stats.predictions') }}?home_id={{ g.home_team_id }}&away_id={{ g.away_team_id }}#tabPredictor'">
+                <td class="ps-3 py-2">
+                  <div style="font-size:.82rem;font-weight:600;color:#fff;">
+                    {{ g.away_team.abbreviation if g.away_team else '?' }}
+                    <span style="color:rgba(255,255,255,.3);margin:0 .3rem;">@</span>
+                    {{ g.home_team.abbreviation if g.home_team else '?' }}
+                  </div>
+                  <div style="font-size:.62rem;color:var(--sea-grey);">
+                    {{ g.game_date.strftime('%b %-d') if g.game_date else '' }}
+                    {% if g.week %}· Wk {{ g.week }}{% endif %}
+                  </div>
+                </td>
+                <td class="py-2 text-center">
+                  <span style="font-family:'Bebas Neue',sans-serif;font-size:.95rem;color:var(--sea-green);">{{ p.home_exp }}</span>
+                  <span style="color:rgba(255,255,255,.25);margin:0 .15rem;">–</span>
+                  <span style="font-family:'Bebas Neue',sans-serif;font-size:.95rem;color:#f87171;">{{ p.away_exp }}</span>
+                </td>
+                <td class="py-2 text-center">
+                  {% set prob = (p.home_win_prob * 100) | round(0) | int if home_fav else (p.away_win_prob * 100) | round(0) | int %}
+                  <span style="font-family:'Bebas Neue',sans-serif;font-size:1.05rem;
+                    color:{{ 'var(--sea-green)' if prob >= 65 else ('#fbbf24' if prob >= 55 else 'rgba(255,255,255,.5)') }};">
+                    {{ prob }}%
+                  </span>
+                </td>
+                {% if not is_upcoming %}
+                <td class="py-2 text-center">
+                  <span style="font-family:'Bebas Neue',sans-serif;font-size:.9rem;color:rgba(255,255,255,.55);">
+                    {{ item.actual_score if item.actual_score is defined else '—' }}
+                  </span>
+                </td>
+                {% endif %}
+                <td class="pe-3 py-2 text-center">
+                  {% if is_upcoming %}
+                    {% set pick_team = p.home_team if home_fav else p.away_team %}
+                    {% set conf_cls = 'pick-high' if p.confidence == 'High' else ('pick-med' if p.confidence == 'Medium' else 'pick-low') %}
+                    <span class="pred-pick-badge {{ conf_cls }}">{{ pick_team.abbreviation if pick_team else '—' }}</span>
+                  {% else %}
+                    {% if item.correct is defined %}
+                      {% if item.correct %}
+                        <span class="pred-pick-badge pick-high"><i class="bi bi-check-lg"></i></span>
+                      {% else %}
+                        <span class="pred-pick-badge pick-wrong"><i class="bi bi-x-lg"></i></span>
+                      {% endif %}
+                    {% else %}
+                      <span style="color:rgba(255,255,255,.2);">—</span>
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer" style="border-top:1px solid rgba(105,190,40,.08);">
+        {% if not is_upcoming %}
+          {# Offseason: show model accuracy #}
+          {% set correct_count = game_preds | selectattr('correct', 'defined') | selectattr('correct') | list | length %}
+          {% set total_count = game_preds | selectattr('correct', 'defined') | list | length %}
+          {% if total_count > 0 %}
+          <span style="font-size:.7rem;color:var(--sea-grey);">
+            Model accuracy on last {{ total_count }} games:
+            <strong style="color:{{ 'var(--sea-green)' if correct_count / total_count >= 0.5 else '#f87171' }};">
+              {{ correct_count }}/{{ total_count }}
+              ({{ (correct_count / total_count * 100) | round(0) | int }}%)
+            </strong>
+            &nbsp;·&nbsp;
+            <a href="{{ url_for('stats.predictions') }}" style="color:var(--sea-green);font-size:.7rem;">Try the full predictor →</a>
+          </span>
+          {% endif %}
+        {% else %}
+          {# In-season: encourage using picks for parlays #}
+          <div class="d-flex align-items-center justify-content-between">
+            <span style="font-size:.7rem;color:var(--sea-grey);">
+              <i class="bi bi-info-circle me-1"></i>
+              Click any row to open the full predictor · picks update as new scores come in
+            </span>
+            <a href="{{ url_for('parlays.create') }}"
+               style="font-size:.68rem;font-weight:700;letter-spacing:.1em;color:var(--sea-green);text-decoration:none;">
+              + BUILD A PARLAY →
+            </a>
+          </div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="card-body text-center py-4" style="color:var(--sea-grey);font-size:.82rem;">
+        <i class="bi bi-calendar-x me-1"></i>No game data available.
+        <a href="{{ url_for('stats.predictions') }}" style="color:var(--sea-green);">Open Predictions Tool →</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Power rankings top 5 #}
+  <div class="col-12 col-md-4">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-list-ol me-1" style="color:var(--sea-green);"></i>POWER RANKINGS</span>
+        <a href="{{ url_for('stats.predictions') }}#tabRankings" style="font-size:.7rem;font-weight:700;letter-spacing:.1em;color:var(--sea-green);text-decoration:none;">
+          ALL 32 →
+        </a>
+      </div>
+      {% if top_teams %}
+      <div class="card-body p-0">
+        {% for r in top_teams %}
+        <div class="d-flex align-items-center gap-2 px-3 py-2" style="border-bottom:1px solid rgba(255,255,255,.04);">
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;min-width:28px;
+            color:{{ 'var(--sea-green)' if r.rank <= 3 else 'rgba(255,255,255,.25)' }};">{{ r.rank }}</span>
+          {% if r.team.logo_url %}
+          <img src="{{ r.team.logo_url }}" style="width:22px;height:22px;object-fit:contain;">
+          {% endif %}
+          <div class="flex-fill">
+            <div style="font-size:.82rem;font-weight:600;color:#fff;">{{ r.team.abbreviation }}</div>
+            <div style="font-size:.62rem;color:var(--sea-grey);">{{ r.team.division or '' }}</div>
+          </div>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:1rem;
+            color:{{ 'var(--sea-green)' if r.diff > 0 else '#f87171' }};">
+            {{ '+' if r.diff > 0 else '' }}{{ r.diff }}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="card-body text-center py-4" style="color:var(--sea-grey);font-size:.82rem;">
+        No ranking data yet.
+      </div>
+      {% endif %}
+      <div class="card-footer text-center" style="border-top:1px solid rgba(105,190,40,.08);">
+        <span style="font-size:.62rem;color:rgba(255,255,255,.25);">Ranked by avg point differential</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ── Seahawks Record + Recent Results ───────────────────────── #}
+<div class="row g-3 mb-4">
+  {# SEA Record card #}
+  <div class="col-md-4">
+    <div class="card h-100 sea-record-card">
+      <div class="card-header d-flex align-items-center gap-2">
+        <img src="{{ url_for('static', filename='img/seahawks_logo.png') }}" style="width:22px;height:22px;object-fit:contain;">
+        <span>SEAHAWKS RECORD</span>
+      </div>
+      <div class="card-body d-flex flex-column justify-content-center gap-3 py-3">
+        {% for year in [2025, 2024] %}
+          {% set rec = sea_record.get(year, {}) %}
+          <div class="sea-rec-row">
+            <div class="sea-rec-year">{{ year }}</div>
+            <div class="sea-rec-wl">
+              <span class="sea-rec-w">{{ rec.get('wins', 0) }}W</span>
+              <span class="sea-rec-dash">–</span>
+              <span class="sea-rec-l">{{ rec.get('losses', 0) }}L</span>
+            </div>
+            <div class="sea-rec-pct">
+              {% set total = rec.get('wins', 0) + rec.get('losses', 0) %}
+              {% if total > 0 %}
+                .{{ "%03d"|format(((rec.get('wins', 0) / total) * 1000)|int) }}
+              {% else %}—{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="card-footer text-center">
+        <a href="{{ url_for('schedules.index') }}" style="font-size:.72rem;font-weight:700;letter-spacing:.1em;color:var(--sea-green);text-decoration:none;">
+          VIEW ALL SEA GAMES →
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {# Recent Results #}
+  <div class="col-md-8">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-clock-history" style="color:var(--sea-green);"></i>
+        <span>RECENT RESULTS</span>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_games %}
+          <div class="table-responsive">
+            <table class="table table-sm mb-0 sea-games-table">
+              {% for g in recent_games %}
+                {% set sea_home = g.home_team_id == 29 %}
+                {% set sea_away = g.away_team_id == 29 %}
+                {% set sea_won = (sea_home and g.home_score > g.away_score) or (sea_away and g.away_score > g.home_score) %}
+                {% set involves_sea = sea_home or sea_away %}
+                <tr onclick="window.location='{{ url_for('schedules.game_detail', game_id=g.id) }}'"
+                    style="cursor:pointer;"
+                    class="{{ 'sea-game-win' if (involves_sea and sea_won) else ('sea-game-loss' if (involves_sea and not sea_won) else '') }}">
+                  <td class="ps-3 py-2" style="font-size:.7rem;color:var(--sea-grey);white-space:nowrap;width:90px;">
+                    {{ g.game_date.strftime('%b %-d') if g.game_date else '' }}
+                  </td>
+                  <td class="py-2 text-end" style="width:38%;">
+                    <span class="sea-team-name {{ 'sea-team-winner' if g.away_score and g.home_score and g.away_score > g.home_score else '' }}">
+                      {{ g.away_team.abbreviation if g.away_team else '?' }}
+                    </span>
+                  </td>
+                  <td class="py-2 text-center sea-score-cell" style="width:80px;">
+                    {% if g.away_score is not none and g.home_score is not none %}
+                      <span class="{{ 'sea-score-win' if g.away_score > g.home_score else '' }}">{{ g.away_score }}</span>
+                      <span style="color:var(--sea-grey);margin:0 3px;">–</span>
+                      <span class="{{ 'sea-score-win' if g.home_score > g.away_score else '' }}">{{ g.home_score }}</span>
+                    {% else %}—{% endif %}
+                  </td>
+                  <td class="py-2" style="width:38%;">
+                    <span class="sea-team-name {{ 'sea-team-winner' if g.away_score and g.home_score and g.home_score > g.away_score else '' }}">
+                      {{ g.home_team.abbreviation if g.home_team else '?' }}
+                    </span>
+                  </td>
+                  <td class="pe-3 py-2 text-end" style="width:30px;">
+                    {% if involves_sea %}
+                      <span class="sea-result-badge {{ 'sea-badge-w' if sea_won else 'sea-badge-l' }}">{{ 'W' if sea_won else 'L' }}</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </table>
+          </div>
+        {% else %}
+          <div class="p-3 text-center" style="color:var(--sea-grey);font-size:.82rem;">No completed games yet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Quick stats + Quick links ──────────────────────────────── #}
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-lightning-fill me-1" style="color:var(--sea-green);"></i>QUICK STATS</div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-borderless mb-0">
+          <tr class="border-bottom" style="border-color:rgba(105,190,40,.08) !important;">
+            <td class="ps-3 py-2" style="color:var(--sea-grey);">Total Parlays</td>
+            <td class="pe-3 py-2 text-end fw-bold">{{ analytics.total }}</td>
+          </tr>
+          <tr class="border-bottom" style="border-color:rgba(105,190,40,.08) !important;">
+            <td class="ps-3 py-2" style="color:var(--sea-grey);">Total Wagered</td>
+            <td class="pe-3 py-2 text-end fw-bold">${{ "%.2f"|format(analytics.total_wagered) }}</td>
+          </tr>
+          <tr class="border-bottom" style="border-color:rgba(105,190,40,.08) !important;">
+            <td class="ps-3 py-2" style="color:var(--sea-grey);">Total Payout</td>
+            <td class="pe-3 py-2 text-end fw-bold">${{ "%.2f"|format(analytics.total_payout) }}</td>
+          </tr>
+          <tr>
+            <td class="ps-3 py-2" style="color:var(--sea-grey);">Avg Bet Size</td>
+            <td class="pe-3 py-2 text-end fw-bold">${{ "%.2f"|format(analytics.avg_bet) }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-grid-fill me-1" style="color:var(--sea-green);"></i>QUICK LINKS</div>
+      <div class="card-body d-grid gap-2">
+        <a href="{{ url_for('parlays.create') }}" class="btn btn-warning"><i class="bi bi-plus"></i> New Parlay</a>
+        <a href="{{ url_for('stats.predictions') }}" class="btn btn-outline-secondary" style="border-color:rgba(105,190,40,.4);color:var(--sea-green);"><i class="bi bi-lightning-charge-fill"></i> Predictions</a>
+        <a href="{{ url_for('schedules.index') }}" class="btn btn-outline-secondary"><i class="bi bi-calendar3"></i> Game Schedule</a>
+        <a href="{{ url_for('stats.leaders') }}" class="btn btn-outline-secondary"><i class="bi bi-bar-chart"></i> Stat Leaders</a>
+        <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-bar-graph"></i> Reports</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ── Season state badge ──────────────── */
+.season-state-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: .72rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: .25rem .75rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.state-live {
+  background: rgba(105,190,40,.12);
+  border: 1px solid rgba(105,190,40,.4);
+  color: var(--sea-green);
+  animation: pulse-green 2.5s ease-in-out infinite;
+}
+.state-playoffs {
+  background: rgba(251,191,36,.1);
+  border: 1px solid rgba(251,191,36,.4);
+  color: #fbbf24;
+  animation: pulse-gold 2.5s ease-in-out infinite;
+}
+.state-offseason {
+  background: rgba(165,172,175,.07);
+  border: 1px solid rgba(165,172,175,.2);
+  color: var(--sea-grey);
+}
+@keyframes pulse-green {
+  0%,100% { box-shadow: 0 0 0 0 rgba(105,190,40,.0); }
+  50%      { box-shadow: 0 0 0 4px rgba(105,190,40,.15); }
+}
+@keyframes pulse-gold {
+  0%,100% { box-shadow: 0 0 0 0 rgba(251,191,36,.0); }
+  50%      { box-shadow: 0 0 0 4px rgba(251,191,36,.15); }
+}
+
+/* ── Season Predictions Carousel ──────── */
+.pred-carousel-wrap {
+  background: linear-gradient(135deg, rgba(0,34,68,.95) 0%, rgba(0,17,34,.98) 100%);
+  border: 1px solid rgba(105,190,40,.2);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.pred-carousel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem 1.2rem .5rem;
+  border-bottom: 1px solid rgba(105,190,40,.12);
+}
+.pred-carousel-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: .1em;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+.pred-carousel-link {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--sea-green);
+  text-decoration: none;
+}
+.pred-card {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.2rem 3.5rem 1.5rem 1.5rem;
+  min-height: 130px;
+  position: relative;
+}
+.pred-card-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .6rem;
+  min-width: 90px;
+}
+.pred-card-avatar {
+  width: 64px; height: 64px;
+  object-fit: cover; object-position: top;
+  border-radius: 50%;
+  border: 2px solid rgba(105,190,40,.4);
+}
+.pred-card-logo {
+  width: 64px; height: 64px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,.5));
+}
+.pred-card-icon-wrap {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,.1);
+}
+.pred-card-badge {
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: .2rem .5rem;
+  border-radius: 20px;
+  border: 1px solid;
+  text-align: center;
+  white-space: nowrap;
+}
+.pred-card-right { flex: 1; min-width: 0; }
+.pred-card-headline {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  line-height: 1;
+  color: #fff;
+  margin-bottom: .15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pred-card-team {
+  display: flex;
+  align-items: center;
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: var(--sea-green);
+  text-transform: uppercase;
+  margin-bottom: .3rem;
+}
+.pred-card-subtext {
+  font-size: .78rem;
+  color: rgba(255,255,255,.55);
+  margin-bottom: .3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pred-card-stat {
+  font-size: .75rem;
+  color: rgba(255,255,255,.8);
+  font-weight: 600;
+  margin-bottom: .4rem;
+}
+.pred-card-conf {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.pred-card-conf.conf-high   { color: var(--sea-green); }
+.pred-card-conf.conf-medium { color: #fbbf24; }
+.pred-card-conf.conf-low    { color: rgba(255,255,255,.3); }
+
+.pred-card-counter {
+  position: absolute;
+  top: .6rem; right: .8rem;
+  font-size: .62rem;
+  color: rgba(255,255,255,.2);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+}
+.pred-indicators {
+  bottom: .4rem !important;
+}
+.pred-indicators [data-bs-target] {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: rgba(255,255,255,.25) !important;
+  border: none !important;
+  margin: 0 3px !important;
+  opacity: 1 !important;
+}
+.pred-indicators .active {
+  background: var(--sea-green) !important;
+}
+.pred-ctrl {
+  width: 32px !important;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.pred-carousel-wrap:hover .pred-ctrl { opacity: 1; }
+.pred-ctrl i { font-size: 1rem; color: rgba(255,255,255,.6); }
+.pred-ctrl-next { right: 0 !important; }
+
+/* ── Prediction pick badges ─────────── */
+.pred-pick-badge {
+  display: inline-block;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: .78rem;
+  letter-spacing: .08em;
+  padding: .15rem .45rem;
+  border-radius: 5px;
+  min-width: 40px;
+  text-align: center;
+}
+.pick-high  { background:rgba(105,190,40,.18); color:var(--sea-green); border:1px solid rgba(105,190,40,.4); }
+.pick-med   { background:rgba(251,191,36,.12); color:#fbbf24; border:1px solid rgba(251,191,36,.35); }
+.pick-low   { background:rgba(255,255,255,.06); color:rgba(255,255,255,.4); border:1px solid rgba(255,255,255,.12); }
+.pick-wrong { background:rgba(248,113,113,.12); color:#f87171; border:1px solid rgba(248,113,113,.3); }
+
+/* ── Hero banner ─────────────────────── */
+.bm-hero {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  min-height: 200px;
+  background: url("{{ url_for('static', filename='img/beast_mode1.jpeg') }}") center/cover no-repeat;
+  border: 1px solid rgba(105,190,40,.2);
+  box-shadow: 0 4px 30px rgba(0,0,0,.5);
+}
+.bm-hero-overlay {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2rem 2.5rem;
+  background: linear-gradient(90deg,
+    rgba(0,17,34,.15) 0%,
+    rgba(0,17,34,.55) 35%,
+    rgba(0,17,34,.92) 65%,
+    rgba(0,17,34,.98) 100%);
+  min-height: 200px;
+}
+.bm-hero-content { flex: 1; }
+.bm-hero-tag {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .2em;
+  color: var(--sea-green);
+  text-transform: uppercase;
+  margin-bottom: .3rem;
+}
+.bm-hero-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3.8rem;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 20px rgba(105,190,40,.4);
+  letter-spacing: .04em;
+}
+.bm-hero-sub {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  color: var(--sea-green);
+  letter-spacing: .15em;
+  margin-top: -.2rem;
+}
+.bm-hero-quote {
+  font-size: .72rem;
+  font-style: italic;
+  color: rgba(165,172,175,.7);
+  margin-top: .6rem;
+  letter-spacing: .04em;
+}
+
+/* KPIs inside hero */
+.bm-hero-kpis {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.bm-kpi { text-align: center; }
+.bm-kpi-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: #fff;
+}
+.bm-kpi-pos { color: var(--sea-green) !important; }
+.bm-kpi-neg { color: #f87171 !important; }
+.bm-kpi-lbl {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .15em;
+  color: var(--sea-grey);
+  text-transform: uppercase;
+  margin-top: .2rem;
+}
+.bm-kpi-divider {
+  width: 1px;
+  height: 40px;
+  background: rgba(105,190,40,.25);
+}
+
+/* ── SEA Record card ─────────────────── */
+.sea-record-card .card-header img { filter: drop-shadow(0 0 6px rgba(105,190,40,.4)); }
+.sea-rec-row {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  padding: .5rem .8rem;
+  border-radius: 8px;
+  background: rgba(0,34,68,.4);
+  border: 1px solid rgba(105,190,40,.1);
+}
+.sea-rec-year {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: .78rem;
+  letter-spacing: .08em;
+  color: var(--sea-grey);
+  width: 36px;
+}
+.sea-rec-wl { flex: 1; display: flex; align-items: center; gap: .4rem; }
+.sea-rec-w {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.6rem;
+  color: var(--sea-green);
+  line-height: 1;
+}
+.sea-rec-l {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.6rem;
+  color: #f87171;
+  line-height: 1;
+}
+.sea-rec-dash { color: var(--sea-grey); font-size: 1.1rem; }
+.sea-rec-pct {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--sea-grey);
+}
+
+/* ── Recent games table ──────────────── */
+.sea-games-table tr { border-bottom: 1px solid rgba(105,190,40,.07) !important; transition: background .12s; }
+.sea-games-table tr:hover { background: rgba(105,190,40,.06) !important; }
+.sea-game-win { border-left: 3px solid var(--sea-green) !important; }
+.sea-game-loss { border-left: 3px solid #f87171 !important; }
+.sea-team-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: .88rem;
+  letter-spacing: .06em;
+  color: rgba(255,255,255,.7);
+}
+.sea-team-winner { color: #fff !important; }
+.sea-score-cell {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: .04em;
+  color: rgba(255,255,255,.6);
+}
+.sea-score-win { color: #fff !important; }
+.sea-result-badge {
+  display: inline-block;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: .82rem;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  border-radius: 4px;
+  letter-spacing: .04em;
+}
+.sea-badge-w { background: rgba(105,190,40,.2); color: var(--sea-green); border: 1px solid rgba(105,190,40,.4); }
+.sea-badge-l { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
+
+/* ── Feature card ────────────────────── */
+.bm-feature-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: url("{{ url_for('static', filename='img/beast_mode.jpg') }}") center/cover no-repeat;
+  border: 1px solid rgba(105,190,40,.2);
+  min-height: 220px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+}
+.bm-feature-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, rgba(0,17,34,.0) 0%, rgba(0,17,34,.75) 50%, rgba(0,17,34,.97) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1.2rem 1.4rem;
+}
+.bm-feature-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  color: var(--sea-green);
+  letter-spacing: .15em;
+}
+.bm-feature-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.9rem;
+  line-height: 1;
+  color: #fff;
+  margin-bottom: .5rem;
+}
+.bm-feature-tags { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .6rem; }
+.bm-tag {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  padding: .2rem .5rem;
+  border-radius: 4px;
+  background: rgba(105,190,40,.15);
+  border: 1px solid rgba(105,190,40,.3);
+  color: var(--sea-green);
+}
+.bm-feature-btn {
+  background: var(--sea-green);
+  color: #001a0a;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: .8rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border: none;
+  align-self: flex-start;
+}
+.bm-feature-btn:hover { background: var(--sea-green-dim); color: #001a0a; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  fetchAndRenderPLChart('/api/parlay/pl-over-time', 'plChart');
+  fetchAndRenderWinRateChart('/api/parlay/win-rate-by-week', 'winRateChart');
+  fetchBetTypeBreakdown();
+});
+
+function fetchBetTypeBreakdown() {
+  fetch('/api/parlay/bet-type-breakdown')
+    .then(r => r.json())
+    .then(data => {
+      if (!data || !data.length) return;
+
+      const LABELS = {
+        spread: 'Spread', moneyline: 'Moneyline', total: 'Over/Under',
+        player_prop: 'Player Prop', team_prop: 'Team Prop', parlay: 'SGP'
+      };
+      const labels = data.map(d => LABELS[d.type] || d.type);
+      const winRates = data.map(d => d.win_rate);
+      const totals = data.map(d => d.total);
+
+      // Horizontal bar — win rate by bet type
+      const SEA_GREEN = 'rgba(105,190,40,0.8)';
+      const SEA_GREEN_BORDER = 'rgba(105,190,40,1)';
+      new Chart(document.getElementById('betTypeChart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Win Rate %',
+            data: winRates,
+            backgroundColor: winRates.map(v => v >= 50 ? SEA_GREEN : 'rgba(248,113,113,0.7)'),
+            borderColor: winRates.map(v => v >= 50 ? SEA_GREEN_BORDER : 'rgba(248,113,113,1)'),
+            borderWidth: 1,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const d = data[ctx.dataIndex];
+                  return ` ${ctx.raw}%  (${d.won}W / ${d.lost}L, ${d.total} legs)`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              min: 0, max: 100,
+              grid: { color: 'rgba(105,190,40,0.07)' },
+              ticks: { color: '#a5acaf', callback: v => v + '%' },
+              border: { color: 'rgba(105,190,40,0.15)' },
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: '#fff', font: { family: "'Barlow Condensed'", weight: '700', size: 13 } },
+              border: { color: 'rgba(105,190,40,0.15)' },
+            }
+          }
+        }
+      });
+
+      // Doughnut — leg count distribution
+      const palette = ['#69BE28','#a5acaf','#002244','#3a7bd5','#f87171','#facc15'];
+      new Chart(document.getElementById('legDistChart'), {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: totals,
+            backgroundColor: palette.slice(0, labels.length),
+            borderColor: '#001122',
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          cutout: '62%',
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#a5acaf', font: { size: 11 }, boxWidth: 12, padding: 8 }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => ` ${ctx.label}: ${ctx.raw} legs`
+              }
+            }
+          }
+        }
+      });
+    });
+}
+</script>
+{% endblock %}

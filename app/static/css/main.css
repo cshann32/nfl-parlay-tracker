@@ -1,0 +1,500 @@
+/* ═══════════════════════════════════════════════════════════
+   NFL Parlay Tracker — SEATTLE SEAHAWKS / BEAST MODE THEME
+   Colors: College Navy #002244 | Action Green #69BE28 | Wolf Grey #A5ACAF
+   ═══════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;800&display=swap');
+
+:root {
+  /* ── Seahawks palette ───────────────────── */
+  --sea-navy:      #002244;
+  --sea-navy-mid:  #00305a;
+  --sea-navy-light:#003d73;
+  --sea-green:     #69BE28;
+  --sea-green-dim: #4e8f1e;
+  --sea-grey:      #A5ACAF;
+  --sea-grey-dark: #6b7275;
+
+  /* ── Surface / background ───────────────── */
+  --nfl-dark:    #001122;        /* page background — deep navy */
+  --nfl-card:    #011530;        /* card background */
+  --nfl-border:  rgba(105, 190, 40, .15);
+  --nfl-muted:   rgba(165, 172, 175, .6);
+  --nfl-divider: rgba(105, 190, 40, .12);
+
+  /* ── Accent (replaces gold) ─────────────── */
+  --nfl-gold:    var(--sea-green);
+}
+
+/* ── Base ─────────────────────────────────── */
+body {
+  background-color: var(--nfl-dark);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(0,34,68,.6) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 100%, rgba(105,190,40,.04) 0%, transparent 60%);
+  font-family: 'Barlow Condensed', 'Segoe UI', sans-serif;
+  font-size: 0.9rem;
+  color: #e8edf2;
+}
+
+/* ── Navbar ───────────────────────────────── */
+.navbar {
+  background: linear-gradient(135deg, #001833 0%, var(--sea-navy) 60%, #001a2e 100%) !important;
+  border-bottom: 2px solid var(--sea-green) !important;
+  box-shadow: 0 2px 20px rgba(105, 190, 40, .2);
+}
+
+.navbar-brand {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: 0.08em;
+  color: #fff !important;
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+}
+
+.navbar-brand .sea-logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 6px rgba(105,190,40,.5));
+}
+
+.navbar-brand .brand-mode {
+  color: var(--sea-green);
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: block;
+  line-height: 1;
+  margin-top: -2px;
+}
+
+.navbar-brand .brand-stack {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.nav-link {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  color: var(--sea-grey) !important;
+  transition: color .15s;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: var(--sea-green) !important;
+}
+
+.nav-link.active {
+  border-bottom: 2px solid var(--sea-green);
+}
+
+/* Admin link stays green-ish */
+.nav-link.text-warning {
+  color: var(--sea-green) !important;
+}
+
+/* ── Cards ────────────────────────────────── */
+.card {
+  background-color: var(--nfl-card);
+  border-color: rgba(105, 190, 40, .12) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,.4);
+}
+
+.card-header {
+  background: linear-gradient(90deg, rgba(105,190,40,.08) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(105,190,40,.15);
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sea-grey);
+}
+
+/* ── Tables ───────────────────────────────── */
+.table-dark {
+  --bs-table-bg: transparent;
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(105, 190, 40, .06);
+}
+
+thead th {
+  color: var(--sea-green) !important;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  border-bottom: 1px solid rgba(105,190,40,.2) !important;
+}
+
+/* ── KPI numbers ──────────────────────────── */
+.kpi-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.4rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--sea-green);
+}
+
+/* ── Status badges ────────────────────────── */
+.badge-won     { background-color: var(--sea-green); color: #001; }
+.badge-lost    { background-color: #dc3545; }
+.badge-push    { background-color: #6c757d; }
+.badge-pending { background-color: var(--sea-navy-light); color: var(--sea-green); border: 1px solid var(--sea-green); }
+
+/* ── P&L colors ───────────────────────────── */
+.text-profit { color: var(--sea-green); }
+.text-loss   { color: #f87171; }
+
+/* ── Buttons ──────────────────────────────── */
+.btn-warning,
+.btn-primary {
+  background: var(--sea-green) !important;
+  border-color: var(--sea-green) !important;
+  color: #001a0a !important;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.btn-warning:hover,
+.btn-primary:hover {
+  background: var(--sea-green-dim) !important;
+  border-color: var(--sea-green-dim) !important;
+}
+
+.btn-outline-secondary {
+  border-color: rgba(105,190,40,.3) !important;
+  color: var(--sea-grey) !important;
+}
+.btn-outline-secondary:hover {
+  background: rgba(105,190,40,.1) !important;
+  color: var(--sea-green) !important;
+}
+
+/* ── Charts ───────────────────────────────── */
+canvas { max-height: 300px; }
+
+/* ── Upload zone ──────────────────────────── */
+.upload-zone {
+  border: 2px dashed rgba(105, 190, 40, .25);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.upload-zone:hover,
+.upload-zone.dragover {
+  border-color: var(--sea-green);
+  background: rgba(105, 190, 40, .05);
+}
+
+/* ── Log viewer ───────────────────────────── */
+#logContent {
+  font-family: 'Courier New', monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.font-mono-sm {
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+/* ── Parlay leg rows ──────────────────────── */
+.leg-row { background-color: rgba(105,190,40,.02); }
+
+/* ── Scrollable table wrapper ─────────────── */
+.table-scroll {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* ── DataTables dark overrides ────────────── */
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_filter input {
+  background-color: var(--nfl-card);
+  color: #fff;
+  border-color: rgba(105,190,40,.2);
+}
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  color: var(--sea-grey) !important;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: var(--sea-green) !important;
+  color: #000 !important;
+  border-color: var(--sea-green) !important;
+}
+
+/* ═══════════════════════��══════════════════
+   Stats page utilities
+   ══════════════════════════════════════════ */
+
+.dark-card {
+  background: var(--nfl-card);
+  border: 1px solid var(--nfl-border);
+  border-radius: 12px;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .45rem .75rem;
+  background: rgba(105,190,40,.04);
+  border: 1px solid rgba(105,190,40,.08);
+  border-radius: .5rem;
+}
+.stat-pill .s-label {
+  font-size: .78rem;
+  color: var(--sea-grey);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.stat-pill .s-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 400;
+  color: #fff;
+}
+
+/* Section divider */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: .75rem;
+}
+.section-header .sh-label {
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--sea-green);
+  white-space: nowrap;
+}
+.section-header .sh-line {
+  height: 1px;
+  flex: 1;
+  background: var(--nfl-divider);
+}
+
+/* ── Interactive card hovers ──────────────── */
+.player-card,
+.team-card,
+.sched-card {
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.player-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(105,190,40,.35) !important;
+  box-shadow: 0 4px 18px rgba(105,190,40,.12);
+}
+.team-card:hover,
+.sched-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(105,190,40,.3) !important;
+  box-shadow: 0 4px 14px rgba(105,190,40,.1);
+}
+
+.roster-row { transition: background .12s, border-color .12s; }
+.roster-row:hover {
+  background: rgba(105,190,40,.06) !important;
+  border-color: rgba(105,190,40,.18) !important;
+}
+
+.leader-top { transition: background .12s; }
+.leader-top:hover { background: rgba(105,190,40,.06) !important; }
+
+.leader-row { transition: background .12s; }
+.leader-row:hover { background: rgba(105,190,40,.04); }
+
+/* ── Tab pills ────────────────────────────── */
+.tab-pill {
+  display: inline-block;
+  padding: .45rem 1.1rem;
+  border-radius: 50px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: .82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  background: rgba(105,190,40,.06);
+  color: var(--sea-grey);
+  border: 1px solid rgba(105,190,40,.15);
+  transition: background .12s, color .12s, border-color .12s;
+}
+.tab-pill:hover:not(.active) {
+  background: rgba(105,190,40,.14);
+  color: #fff;
+}
+.tab-pill.active {
+  background: var(--sea-green);
+  color: #001a0a;
+  border-color: var(--sea-green);
+}
+
+/* ── Beast Mode banner strip ──────────────── */
+.beast-mode-bar {
+  background: linear-gradient(90deg, var(--sea-navy) 0%, var(--sea-navy-mid) 50%, var(--sea-navy) 100%);
+  border-top: 1px solid rgba(105,190,40,.2);
+  border-bottom: 1px solid rgba(105,190,40,.2);
+  padding: .35rem 1rem;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: .2em;
+  color: rgba(105,190,40,.6);
+  text-align: center;
+  overflow: hidden;
+}
+
+/* ── Flash alerts ─────────────────────────── */
+.alert-success {
+  background: rgba(105,190,40,.12);
+  border-color: rgba(105,190,40,.35);
+  color: var(--sea-green);
+}
+.alert-warning {
+  background: rgba(0,34,68,.4);
+  border-color: rgba(105,190,40,.3);
+  color: #d4e8b0;
+}
+.alert-danger {
+  background: rgba(220,53,69,.12);
+  border-color: rgba(220,53,69,.35);
+  color: #f87171;
+}
+.alert-info {
+  background: rgba(0,61,115,.3);
+  border-color: rgba(105,190,40,.2);
+  color: var(--sea-grey);
+}
+
+/* ── Dropdown menus ───────────────────────── */
+.dropdown-menu {
+  background: var(--sea-navy);
+  border: 1px solid rgba(105,190,40,.2);
+}
+.dropdown-item {
+  color: var(--sea-grey);
+}
+.dropdown-item:hover {
+  background: rgba(105,190,40,.1);
+  color: var(--sea-green);
+}
+.dropdown-divider {
+  border-color: rgba(105,190,40,.15);
+}
+
+/* ── Footer ───────────────────────────────── */
+footer {
+  background: var(--sea-navy) !important;
+  border-top: 1px solid var(--sea-green) !important;
+  color: var(--sea-grey) !important;
+}
+
+/* ── Forms ────────────────────────────────── */
+.form-control,
+.form-select {
+  background: rgba(0,34,68,.6) !important;
+  border-color: rgba(105,190,40,.2) !important;
+  color: #e8edf2 !important;
+}
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--sea-green) !important;
+  box-shadow: 0 0 0 .2rem rgba(105,190,40,.15) !important;
+}
+
+/* ── Badge overrides ──────────────────────── */
+.bg-warning { background-color: var(--sea-green) !important; color: #001a0a !important; }
+.text-warning { color: var(--sea-green) !important; }
+.border-warning { border-color: var(--sea-green) !important; }
+
+/* ══════════════════════════════════════════
+   MOBILE BOTTOM NAV BAR
+   ══════════════════════════════════════════ */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1050;
+  background: rgba(0, 17, 34, .97);
+  border-top: 1px solid rgba(105, 190, 40, .18);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: .35rem 0 calc(.35rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 24px rgba(0,0,0,.5);
+}
+
+.mbn-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  color: rgba(165, 172, 175, .55);
+  text-decoration: none;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: .25rem .6rem;
+  border-radius: 10px;
+  transition: color .15s, background .15s;
+  flex: 1;
+  max-width: 64px;
+}
+.mbn-item i { font-size: 1.25rem; line-height: 1; }
+.mbn-item:hover { color: rgba(255,255,255,.7); }
+.mbn-item.mbn-active {
+  color: var(--sea-green);
+}
+.mbn-item.mbn-active i {
+  filter: drop-shadow(0 0 6px rgba(105,190,40,.5));
+}
+
+.mbn-fab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--sea-green);
+  color: #001a0a;
+  font-size: 1.4rem;
+  text-decoration: none;
+  box-shadow: 0 4px 18px rgba(105,190,40,.45);
+  flex-shrink: 0;
+  margin: 0 .5rem;
+  transition: background .15s, box-shadow .15s, transform .1s;
+}
+.mbn-fab:hover {
+  background: var(--sea-green-dim);
+  box-shadow: 0 4px 24px rgba(105,190,40,.6);
+  transform: scale(1.06);
+  color: #001a0a;
+}
+
+/* Add bottom padding to main so content isn't hidden behind the bottom nav */
+@media (max-width: 767.98px) {
+  main.container-fluid { padding-bottom: 5rem !important; }
+  /* Hide quote bar on very small screens */
+  .beast-mode-bar { display: none; }
+}

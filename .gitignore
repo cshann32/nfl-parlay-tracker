@@ -1,0 +1,40 @@
+# Environment — NEVER commit this
+.env
+
+# Logs and uploads — runtime data
+logs/
+uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+.dockerignore
+
+# macOS
+.DS_Store
+
+# Database dumps
+*.sql
+*.dump

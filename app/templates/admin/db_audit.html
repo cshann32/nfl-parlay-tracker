@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+{% block title %}DB Audit — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+{# ── breadcrumb ─────────────────────────────────────────────────────────── #}
+<div class="d-flex align-items-center gap-2 mb-4">
+  <a href="{{ url_for('admin.db_health') }}"
+     class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1">
+    <i class="bi bi-arrow-left"></i> Database Health
+  </a>
+</div>
+
+{# ── page header ────────────────────────────────────────────────────────── #}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <div style="width:40px;height:40px;border-radius:10px;
+              background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);
+              display:flex;align-items:center;justify-content:center;">
+    <i class="bi bi-shield-exclamation" style="color:#ef4444;font-size:1.1rem;"></i>
+  </div>
+  <div>
+    <h2 class="fw-black mb-0" style="font-size:1.4rem;letter-spacing:-.02em;">DB Audit Report</h2>
+    <div style="font-size:.75rem;color:rgba(255,255,255,.35);">
+      Duplicate detection &amp; data integrity
+    </div>
+  </div>
+  <div class="ms-auto">
+    <a href="{{ url_for('admin.db_audit') }}"
+       class="btn btn-sm"
+       style="background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.35);
+              color:#a855f7;font-size:.78rem;font-weight:600;border-radius:7px;padding:.4rem 1rem;">
+      <i class="bi bi-arrow-clockwise me-1"></i>Re-run Audit
+    </a>
+  </div>
+</div>
+
+{# ── flash messages ─────────────────────────────────────────────────────── #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+  <div class="alert alert-{{ 'danger' if cat == 'danger' else ('warning' if cat == 'warning' else 'success') }} py-2 px-3 mb-3"
+       style="font-size:.84rem;border-radius:8px;">
+    {{ msg }}
+  </div>
+  {% endfor %}
+{% endwith %}
+
+{# ── KPI strip ──────────────────────────────────────────────────────────── #}
+{% set dup_odds_total    = findings.duplicate_odds    | sum(attribute='cnt') - findings.duplicate_odds    | length %}
+{% set dup_games_total   = findings.duplicate_games   | sum(attribute='cnt') - findings.duplicate_games   | length %}
+{% set dup_players_total = findings.duplicate_players | sum(attribute='cnt') - findings.duplicate_players | length %}
+{% set dup_news_total    = findings.duplicate_news    | sum(attribute='cnt') - findings.duplicate_news    | length %}
+
+<div class="row g-3 mb-4">
+  {% set kpis = [
+    ("Dup Teams",   findings.duplicate_teams   | length, "bi-people-fill",      "#ef4444", "rgba(239,68,68,.12)"),
+    ("Dup Players", findings.duplicate_players | length, "bi-person-fill",      "#f97316", "rgba(249,115,22,.12)"),
+    ("Dup Games",   findings.duplicate_games   | length, "bi-controller",       "#eab308", "rgba(234,179,8,.12)"),
+    ("Dup Odds",    findings.duplicate_odds    | length, "bi-currency-dollar",  "#ef4444", "rgba(239,68,68,.12)"),
+    ("Dup News",    findings.duplicate_news    | length, "bi-newspaper",        "#f97316", "rgba(249,115,22,.12)"),
+  ] %}
+  {% for label, val, icon, col, bg in kpis %}
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="rounded-3 p-3 h-100 text-center"
+         style="background:#111820;border:1px solid rgba(255,255,255,.07);">
+      <div class="mb-1">
+        <i class="bi {{ icon }}" style="color:{{ col }};font-size:1.25rem;"></i>
+      </div>
+      <div class="fw-black" style="font-size:1.6rem;color:{{ '#22c55e' if val == 0 else col }};">
+        {{ val }}
+      </div>
+      <div style="font-size:.7rem;color:rgba(255,255,255,.35);letter-spacing:.06em;text-transform:uppercase;">
+        {{ label }}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {# null api_ids #}
+  {% set null_total = findings.null_api_ids.teams + findings.null_api_ids.players + findings.null_api_ids.games %}
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="rounded-3 p-3 h-100 text-center"
+         style="background:#111820;border:1px solid rgba(255,255,255,.07);">
+      <div class="mb-1">
+        <i class="bi bi-question-circle-fill" style="color:#94a3b8;font-size:1.25rem;"></i>
+      </div>
+      <div class="fw-black" style="font-size:1.6rem;color:{{ '#22c55e' if null_total == 0 else '#94a3b8' }};">
+        {{ null_total }}
+      </div>
+      <div style="font-size:.7rem;color:rgba(255,255,255,.35);letter-spacing:.06em;text-transform:uppercase;">
+        No API ID
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── helper macro for section header ────────────────────────────────────── #}
+{% macro section_header(title, count, color, icon) %}
+<div class="d-flex align-items-center gap-2 px-4 py-3"
+     style="border-bottom:1px solid rgba(255,255,255,.06);">
+  <i class="bi {{ icon }}" style="color:{{ color }};font-size:.95rem;"></i>
+  <span class="fw-semibold text-white" style="font-size:.88rem;">{{ title }}</span>
+  <span class="ms-2 badge"
+        style="background:{{ 'rgba(34,197,94,.15)' if count == 0 else 'rgba(239,68,68,.15)' }};
+               color:{{ '#22c55e' if count == 0 else '#ef4444' }};font-size:.72rem;">
+    {{ count }} group{{ 's' if count != 1 else '' }}
+  </span>
+  {% if count == 0 %}
+  <span class="ms-auto" style="font-size:.75rem;color:#22c55e;">
+    <i class="bi bi-check-circle me-1"></i>Clean
+  </span>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{# ── Duplicate Odds ──────────────────────────────────────────────────────── #}
+<div class="rounded-3 mb-4 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  {{ section_header("Duplicate Odds", findings.duplicate_odds | length, "#ef4444", "bi-currency-dollar") }}
+  {% if findings.duplicate_odds %}
+  <div class="px-4 pt-3 pb-2" style="font-size:.82rem;color:rgba(255,255,255,.5);">
+    These odds rows share the same <code>(game_id, source, market_type)</code> — caused by repeated syncs.
+    Fix keeps the most recently synced row per group.
+  </div>
+  <div class="table-responsive px-4 pb-3">
+    <table class="table table-sm mb-2" style="font-size:.82rem;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.06);">
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Game ID</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Source</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Market</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Duplicates</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">IDs</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in findings.duplicate_odds[:50] %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+          <td class="text-white">{{ row.game_id }}</td>
+          <td style="color:rgba(255,255,255,.6);">{{ row.source }}</td>
+          <td style="color:rgba(255,255,255,.6);">{{ row.market_type }}</td>
+          <td><span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;">×{{ row.cnt }}</span></td>
+          <td style="color:rgba(255,255,255,.35);font-family:monospace;font-size:.75rem;">{{ row.ids | join(', ') }}</td>
+        </tr>
+        {% endfor %}
+        {% if findings.duplicate_odds | length > 50 %}
+        <tr>
+          <td colspan="5" class="text-center" style="color:rgba(255,255,255,.35);font-size:.78rem;padding:.75rem;">
+            … and {{ findings.duplicate_odds | length - 50 }} more groups
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+    <form method="post" action="{{ url_for('admin.db_cleanup') }}"
+          onsubmit="return confirm('Remove {{ dup_odds_total }} duplicate odds rows?');">
+      <input type="hidden" name="action" value="fix_odds">
+      <button type="submit" class="btn btn-sm"
+              style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);
+                     color:#ef4444;font-size:.78rem;font-weight:600;border-radius:7px;">
+        <i class="bi bi-trash3 me-1"></i>Remove {{ dup_odds_total }} duplicate row{{ 's' if dup_odds_total != 1 }}
+      </button>
+    </form>
+  </div>
+  {% else %}
+  <div class="px-4 py-3"></div>
+  {% endif %}
+</div>
+
+{# ── Duplicate Games ─────────────────────────────────────────────────────── #}
+<div class="rounded-3 mb-4 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  {{ section_header("Duplicate Games", findings.duplicate_games | length, "#eab308", "bi-controller") }}
+  {% if findings.duplicate_games %}
+  <div class="px-4 pt-3 pb-2" style="font-size:.82rem;color:rgba(255,255,255,.5);">
+    Games representing the same real match — from different API sources (RapidAPI + ESPN).
+    Fix keeps the record with the most player stats; all children (stats, odds, plays) are reassigned.
+  </div>
+  <div class="table-responsive px-4 pb-3">
+    <table class="table table-sm mb-2" style="font-size:.82rem;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.06);">
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Matchup</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Season</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Week</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Dups</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Stats / Game</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">API IDs</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in findings.duplicate_games[:50] %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+          <td class="fw-semibold text-white">
+            {{ row.away_abbr or row.away_team_id }} @ {{ row.home_abbr or row.home_team_id }}
+          </td>
+          <td style="color:rgba(255,255,255,.6);">{{ row.season_year }}</td>
+          <td style="color:rgba(255,255,255,.6);">{{ row.week }}</td>
+          <td><span class="badge" style="background:rgba(234,179,8,.15);color:#eab308;">×{{ row.cnt }}</span></td>
+          <td style="color:rgba(255,255,255,.5);font-size:.76rem;">
+            {% for sc in row.stat_counts %}{{ sc }}{% if not loop.last %} / {% endif %}{% endfor %}
+          </td>
+          <td style="color:rgba(255,255,255,.3);font-family:monospace;font-size:.73rem;">
+            {{ row.api_ids | join(', ') }}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if findings.duplicate_games | length > 50 %}
+        <tr>
+          <td colspan="6" class="text-center" style="color:rgba(255,255,255,.35);font-size:.78rem;padding:.75rem;">
+            … and {{ findings.duplicate_games | length - 50 }} more groups
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+    <form method="post" action="{{ url_for('admin.db_cleanup') }}"
+          onsubmit="return confirm('Merge and remove {{ dup_games_total }} duplicate game records? Stats will be reassigned to the survivor.');">
+      <input type="hidden" name="action" value="fix_games">
+      <button type="submit" class="btn btn-sm"
+              style="background:rgba(234,179,8,.15);border:1px solid rgba(234,179,8,.35);
+                     color:#eab308;font-size:.78rem;font-weight:600;border-radius:7px;">
+        <i class="bi bi-arrow-repeat me-1"></i>Merge {{ dup_games_total }} duplicate game{{ 's' if dup_games_total != 1 }}
+      </button>
+    </form>
+  </div>
+  {% else %}
+  <div class="px-4 py-3"></div>
+  {% endif %}
+</div>
+
+{# ── Duplicate Players ───────────────────────────────────────────────────── #}
+<div class="rounded-3 mb-4 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  {{ section_header("Duplicate Players", findings.duplicate_players | length, "#f97316", "bi-person-fill") }}
+  {% if findings.duplicate_players %}
+  <div class="px-4 pt-3 pb-2" style="font-size:.82rem;color:rgba(255,255,255,.5);">
+    Players sharing the same name on the same team — from different sync sources.
+    Fix keeps the ESPN record (most complete data) and reassigns stats.
+  </div>
+  <div class="table-responsive px-4 pb-3">
+    <table class="table table-sm mb-2" style="font-size:.82rem;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.06);">
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Player</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Team</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Dups</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">IDs</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">API IDs</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in findings.duplicate_players[:50] %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+          <td class="fw-semibold text-white">{{ row.name }}</td>
+          <td style="color:rgba(255,255,255,.6);">{{ row.team_abbr or '—' }}</td>
+          <td><span class="badge" style="background:rgba(249,115,22,.15);color:#f97316;">×{{ row.cnt }}</span></td>
+          <td style="color:rgba(255,255,255,.35);font-family:monospace;font-size:.75rem;">{{ row.ids | join(', ') }}</td>
+          <td style="color:rgba(255,255,255,.3);font-family:monospace;font-size:.73rem;">{{ row.api_ids | join(', ') }}</td>
+        </tr>
+        {% endfor %}
+        {% if findings.duplicate_players | length > 50 %}
+        <tr>
+          <td colspan="5" class="text-center" style="color:rgba(255,255,255,.35);font-size:.78rem;padding:.75rem;">
+            … and {{ findings.duplicate_players | length - 50 }} more groups
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+    <form method="post" action="{{ url_for('admin.db_cleanup') }}"
+          onsubmit="return confirm('Merge and remove {{ dup_players_total }} duplicate player records? Stats will be reassigned.');">
+      <input type="hidden" name="action" value="fix_players">
+      <button type="submit" class="btn btn-sm"
+              style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.35);
+                     color:#f97316;font-size:.78rem;font-weight:600;border-radius:7px;">
+        <i class="bi bi-arrow-repeat me-1"></i>Merge {{ dup_players_total }} duplicate player{{ 's' if dup_players_total != 1 }}
+      </button>
+    </form>
+  </div>
+  {% else %}
+  <div class="px-4 py-3"></div>
+  {% endif %}
+</div>
+
+{# ── Duplicate Teams ─────────────────────────────────────────────────────── #}
+<div class="rounded-3 mb-4 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  {{ section_header("Duplicate Teams", findings.duplicate_teams | length, "#ef4444", "bi-people-fill") }}
+  {% if findings.duplicate_teams %}
+  <div class="px-4 pt-3 pb-2" style="font-size:.82rem;color:rgba(255,255,255,.5);">
+    Teams sharing the same abbreviation — manual DB inspection recommended before merging.
+    Use the Raw SQL console to merge and reassign foreign keys.
+  </div>
+  <div class="table-responsive px-4 pb-3">
+    <table class="table table-sm mb-0" style="font-size:.82rem;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.06);">
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Abbreviation</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Names</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Dups</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">IDs</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">API IDs</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in findings.duplicate_teams %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+          <td class="fw-bold text-white">{{ row.abbreviation }}</td>
+          <td style="color:rgba(255,255,255,.6);">{{ row.names | join(' / ') }}</td>
+          <td><span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;">×{{ row.cnt }}</span></td>
+          <td style="color:rgba(255,255,255,.35);font-family:monospace;font-size:.75rem;">{{ row.ids | join(', ') }}</td>
+          <td style="color:rgba(255,255,255,.3);font-family:monospace;font-size:.73rem;">{{ row.api_ids | join(', ') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="px-4 py-3"></div>
+  {% endif %}
+</div>
+
+{# ── Duplicate News ──────────────────────────────────────────────────────── #}
+<div class="rounded-3 mb-4 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  {{ section_header("Duplicate News", findings.duplicate_news | length, "#f97316", "bi-newspaper") }}
+  {% if findings.duplicate_news %}
+  <div class="px-4 pt-3 pb-2" style="font-size:.82rem;color:rgba(255,255,255,.5);">
+    Articles sharing the same headline — cross-API duplicates (RapidAPI + ESPN).
+    Fix keeps the article with an api_id (or lowest id), deletes the rest.
+  </div>
+  <div class="table-responsive px-4 pb-3">
+    <table class="table table-sm mb-2" style="font-size:.82rem;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.06);">
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Headline</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">Dups</th>
+          <th style="color:rgba(255,255,255,.35);font-weight:600;">IDs</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in findings.duplicate_news[:30] %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+          <td style="color:rgba(255,255,255,.7);max-width:400px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            {{ row.headline }}
+          </td>
+          <td><span class="badge" style="background:rgba(249,115,22,.15);color:#f97316;">×{{ row.cnt }}</span></td>
+          <td style="color:rgba(255,255,255,.35);font-family:monospace;font-size:.75rem;">{{ row.ids | join(', ') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <form method="post" action="{{ url_for('admin.db_cleanup') }}"
+          onsubmit="return confirm('Remove {{ dup_news_total }} duplicate news article{{ 's' if dup_news_total != 1 }}?');">
+      <input type="hidden" name="action" value="fix_news">
+      <button type="submit" class="btn btn-sm"
+              style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.35);
+                     color:#f97316;font-size:.78rem;font-weight:600;border-radius:7px;">
+        <i class="bi bi-trash3 me-1"></i>Remove {{ dup_news_total }} duplicate article{{ 's' if dup_news_total != 1 }}
+      </button>
+    </form>
+  </div>
+  {% else %}
+  <div class="px-4 py-3"></div>
+  {% endif %}
+</div>
+
+{# ── Data Gaps ───────────────────────────────────────────────────────────── #}
+<div class="rounded-3 mb-4 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="d-flex align-items-center gap-2 px-4 py-3"
+       style="border-bottom:1px solid rgba(255,255,255,.06);">
+    <i class="bi bi-info-circle" style="color:#94a3b8;font-size:.95rem;"></i>
+    <span class="fw-semibold text-white" style="font-size:.88rem;">Data Gaps</span>
+    <span class="ms-1" style="font-size:.75rem;color:rgba(255,255,255,.35);">
+      (informational — no action needed)
+    </span>
+  </div>
+  <div class="p-4">
+    <div class="row g-3">
+      {# null api_ids #}
+      <div class="col-md-4">
+        <div class="rounded-2 p-3" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);">
+          <div class="fw-semibold text-white mb-2" style="font-size:.82rem;">Records without API ID</div>
+          {% for table, cnt in findings.null_api_ids.items() %}
+          <div class="d-flex justify-content-between mb-1" style="font-size:.8rem;">
+            <span style="color:rgba(255,255,255,.5);text-transform:capitalize;">{{ table }}</span>
+            <span style="{{ 'color:#22c55e' if cnt == 0 else 'color:#94a3b8' }}">{{ cnt }}</span>
+          </div>
+          {% endfor %}
+          <div style="font-size:.73rem;color:rgba(255,255,255,.25);margin-top:.5rem;">
+            Records without api_id can't be cross-referenced between syncs.
+          </div>
+        </div>
+      </div>
+      {# games missing teams #}
+      <div class="col-md-4">
+        <div class="rounded-2 p-3" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);">
+          <div class="fw-semibold text-white mb-2" style="font-size:.82rem;">Games without Team</div>
+          <div class="fw-black" style="font-size:1.6rem;color:{{ '#22c55e' if findings.games_missing_teams == 0 else '#94a3b8' }};">
+            {{ findings.games_missing_teams }}
+          </div>
+          <div style="font-size:.73rem;color:rgba(255,255,255,.25);margin-top:.25rem;">
+            Games where home_team_id or away_team_id is NULL.
+            Run <strong>espn_teams</strong> then <strong>espn_schedule</strong> syncs to fill.
+          </div>
+        </div>
+      </div>
+      {# players without team #}
+      <div class="col-md-4">
+        <div class="rounded-2 p-3" style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);">
+          <div class="fw-semibold text-white mb-2" style="font-size:.82rem;">Players without Team</div>
+          <div class="fw-black" style="font-size:1.6rem;color:{{ '#22c55e' if findings.players_no_team == 0 else '#94a3b8' }};">
+            {{ findings.players_no_team }}
+          </div>
+          <div style="font-size:.73rem;color:rgba(255,255,255,.25);margin-top:.25rem;">
+            Players where team_id is NULL (free agents, practice squad, etc.).
+            Run <strong>espn_roster</strong> sync to update team assignments.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Clean bill of health ────────────────────────────────────────────────── #}
+{% if total_issues == 0 %}
+<div class="rounded-3 p-4 text-center mb-4"
+     style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);">
+  <i class="bi bi-check-circle-fill" style="color:#22c55e;font-size:2rem;"></i>
+  <div class="fw-bold mt-2" style="color:#22c55e;font-size:1rem;">Database is clean!</div>
+  <div style="font-size:.82rem;color:rgba(255,255,255,.4);margin-top:.25rem;">
+    No duplicate teams, players, games, odds, or news articles detected.
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<style>
+.table td, .table th { background:transparent !important; border-color:transparent !important; }
+</style>
+{% endblock %}

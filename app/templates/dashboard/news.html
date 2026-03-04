@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block title %}NFL News — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<style>
+/* ─── Masthead ─── */
+.news-masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(105,190,40,.25);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.news-masthead-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.4rem;
+  letter-spacing: .06em;
+  color: #fff;
+  line-height: 1;
+}
+.news-masthead-title span { color: #69BE28; }
+
+/* ─── Live dot ─── */
+.live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: livePulse 1.6s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .4; transform: scale(.7); }
+}
+
+/* ─── Hero ─── */
+.news-hero {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  text-decoration: none;
+  margin-bottom: 1.5rem;
+  background: #0d1117;
+}
+.news-hero-bg {
+  position: absolute; inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform .5s ease;
+}
+.news-hero:hover .news-hero-bg { transform: scale(1.04); }
+.news-hero-shade {
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0,5,12,1)   0%,
+    rgba(0,5,12,.85) 35%,
+    rgba(0,5,12,.35) 70%,
+    rgba(0,5,12,.05) 100%
+  );
+}
+.news-hero-body {
+  position: relative; z-index: 2;
+  padding: 2.25rem 2.25rem 2rem;
+}
+.news-hero-label {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .25rem .75rem;
+  border-radius: 4px;
+  background: #69BE28;
+  font-size: .6rem;
+  font-weight: 900;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: #001a0a;
+  margin-bottom: .85rem;
+}
+.news-hero-hl {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.7rem, 3.5vw, 2.8rem);
+  line-height: 1.05;
+  letter-spacing: .02em;
+  color: #fff;
+  margin-bottom: .7rem;
+  text-shadow: 0 2px 16px rgba(0,0,0,.7);
+}
+.news-hero-desc {
+  font-size: .88rem;
+  color: rgba(255,255,255,.6);
+  line-height: 1.55;
+  max-width: 620px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: .9rem;
+}
+.news-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: .68rem;
+}
+
+/* ─── 3-col image grid ─── */
+.news-grid-card {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #111820;
+  border: 1px solid rgba(255,255,255,.08);
+  text-decoration: none;
+  display: block;
+  transition: border-color .14s, transform .14s;
+  height: 100%;
+}
+.news-grid-card:hover {
+  border-color: rgba(255,255,255,.22);
+  transform: translateY(-3px);
+}
+.news-grid-img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  background: #0d1117;
+}
+.news-grid-img img {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  transition: transform .35s ease;
+}
+.news-grid-card:hover .news-grid-img img { transform: scale(1.06); }
+.news-grid-body {
+  padding: .9rem 1rem .85rem;
+}
+.news-grid-hl {
+  font-size: .88rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: .4rem;
+}
+.news-grid-card:hover .news-grid-hl { color: #fff; }
+
+/* ─── List feed ─── */
+.news-feed-item {
+  display: flex;
+  align-items: flex-start;
+  gap: .9rem;
+  padding: .9rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  text-decoration: none;
+  transition: background .12s;
+}
+.news-feed-item:last-child { border-bottom: none; }
+.news-feed-item:hover { background: rgba(255,255,255,.03); }
+.news-feed-item:hover .nfi-title { color: #69BE28; }
+.news-feed-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: rgba(255,255,255,.1);
+  flex-shrink: 0;
+  width: 28px;
+  text-align: right;
+}
+.news-feed-thumb {
+  flex-shrink: 0;
+  width: 72px; height: 54px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: rgba(255,255,255,.05);
+}
+.news-feed-thumb img { width: 72px; height: 54px; object-fit: cover; display: block; }
+.nfi-title {
+  font-size: .84rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color .12s;
+}
+.nfi-meta { font-size: .62rem; color: rgba(255,255,255,.22); margin-top: .3rem; }
+
+@media (max-width: 576px) {
+  .news-hero { min-height: 280px; }
+  .news-hero-body { padding: 1.25rem; }
+  .news-hero-desc { display: none; }
+}
+</style>
+
+{# ── MASTHEAD ── #}
+<div class="news-masthead">
+  <div class="news-masthead-title">NFL <span>NEWS</span></div>
+  <div class="d-flex align-items-center gap-3">
+    {% if source == 'rss' %}
+    <div style="display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border-radius:20px;
+                background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);">
+      <span class="live-dot"></span>
+      <span style="font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#f87171;">Live</span>
+      <span style="font-size:.65rem;color:rgba(255,255,255,.3);letter-spacing:.04em;">ESPN RSS</span>
+    </div>
+    {% else %}
+    <div style="display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border-radius:20px;
+                background:rgba(105,190,40,.08);border:1px solid rgba(105,190,40,.2);">
+      <i class="bi bi-database-fill" style="font-size:.65rem;color:#69BE28;"></i>
+      <span style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#69BE28;">Synced</span>
+    </div>
+    <a href="{{ url_for('admin.sync') }}"
+       style="font-size:.72rem;color:rgba(255,255,255,.3);text-decoration:none;"
+       class="d-inline-flex align-items-center gap-1">
+      <i class="bi bi-arrow-repeat"></i> refresh
+    </a>
+    {% endif %}
+  </div>
+</div>
+
+{% if not articles %}
+<div class="text-center py-5 rounded-3" style="background:#111820;border:1px solid rgba(255,255,255,.07);">
+  <i class="bi bi-newspaper d-block mb-3" style="font-size:3rem;color:rgba(255,255,255,.12);"></i>
+  <div style="font-size:.9rem;color:rgba(255,255,255,.35);">No news available right now.</div>
+  {% if source == 'db' %}
+  <a href="{{ url_for('admin.sync') }}" style="color:#69BE28;font-size:.82rem;display:inline-block;margin-top:.6rem;">
+    <i class="bi bi-arrow-repeat me-1"></i>Sync news from admin
+  </a>
+  {% endif %}
+</div>
+
+{% else %}
+
+{# ── HERO ── #}
+{% set top = articles[0] %}
+<a href="{{ top.link }}" target="_blank" rel="noopener noreferrer" class="news-hero">
+  {% if top.thumbnail %}
+  <div class="news-hero-bg" style="background-image:url('{{ top.thumbnail }}');"></div>
+  {% else %}
+  <div class="news-hero-bg" style="background:linear-gradient(135deg,#001836 0%,#002244 40%,#001a36 100%);"></div>
+  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;">
+    <i class="bi bi-newspaper" style="font-size:6rem;color:rgba(105,190,40,.06);"></i>
+  </div>
+  {% endif %}
+  <div class="news-hero-shade"></div>
+  <div class="news-hero-body">
+    <div class="news-hero-label">
+      <i class="bi bi-star-fill" style="font-size:.55rem;"></i> Cover Story
+    </div>
+    <div class="news-hero-hl">{{ top.title }}</div>
+    {% if top.description %}
+    <div class="news-hero-desc">{{ top.description | striptags }}</div>
+    {% endif %}
+    <div class="news-hero-meta">
+      {% if top.published_at and top.published_at is not string %}
+      <span style="color:rgba(255,255,255,.38);">{{ top.published_at.strftime('%b %-d, %Y') }}</span>
+      {% elif top.pub_date %}
+      <span style="color:rgba(255,255,255,.38);">{{ top.pub_date[:16] }}</span>
+      {% endif %}
+      <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .8rem;border-radius:6px;
+                   background:rgba(105,190,40,.18);border:1px solid rgba(105,190,40,.35);
+                   color:#69BE28;font-weight:700;letter-spacing:.06em;">
+        Read story <i class="bi bi-arrow-right"></i>
+      </span>
+    </div>
+  </div>
+</a>
+
+{% if articles | length > 1 %}
+
+{# ── 3-col image grid: articles 1–3 ── #}
+{% set grid_stories = articles[1:4] %}
+{% if grid_stories %}
+<div class="row g-3 mb-4">
+  {% for a in grid_stories %}
+  <div class="col-12 col-md-4">
+    <a href="{{ a.link }}" target="_blank" rel="noopener noreferrer" class="news-grid-card">
+      <div class="news-grid-img">
+        {% if a.thumbnail %}
+        <img src="{{ a.thumbnail }}" alt="">
+        {% else %}
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+          <i class="bi bi-newspaper" style="font-size:2rem;color:rgba(255,255,255,.08);"></i>
+        </div>
+        {% endif %}
+      </div>
+      <div class="news-grid-body">
+        <div class="news-grid-hl">{{ a.title }}</div>
+        <div style="font-size:.65rem;color:rgba(255,255,255,.25);margin-top:.25rem;">
+          {% if a.published_at and a.published_at is not string %}
+          {{ a.published_at.strftime('%b %-d, %Y') }}
+          {% elif a.pub_date %}
+          {{ a.pub_date[:16] }}
+          {% endif %}
+          &nbsp;<i class="bi bi-box-arrow-up-right" style="font-size:.6rem;"></i>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ── Feed: articles 4+ ── #}
+{% set feed = articles[4:] %}
+{% if feed %}
+<div class="section-header mb-3">
+  <span class="sh-label">More Stories</span>
+  <div class="sh-line"></div>
+</div>
+
+<div class="rounded-3 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.07);">
+  {% for a in feed %}
+  {% set n = loop.index + 4 %}
+  <a href="{{ a.link }}" target="_blank" rel="noopener noreferrer" class="news-feed-item">
+    <div class="news-feed-num">{{ n }}</div>
+    <div class="news-feed-thumb flex-shrink-0">
+      {% if a.thumbnail %}
+      <img src="{{ a.thumbnail }}" alt="">
+      {% else %}
+      <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+        <i class="bi bi-newspaper" style="font-size:.9rem;color:rgba(255,255,255,.12);"></i>
+      </div>
+      {% endif %}
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div class="nfi-title">{{ a.title }}</div>
+      <div class="nfi-meta">
+        {% if a.published_at and a.published_at is not string %}
+        {{ a.published_at.strftime('%b %-d, %Y') }}
+        {% elif a.pub_date %}
+        {{ a.pub_date[:16] }}
+        {% endif %}
+      </div>
+    </div>
+    <i class="bi bi-arrow-up-right flex-shrink-0 ms-2" style="color:rgba(255,255,255,.15);font-size:.75rem;margin-top:.15rem;"></i>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endif %}
+{% endif %}
+
+{% endblock %}

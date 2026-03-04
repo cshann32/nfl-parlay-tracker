@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Stat Leaders — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="bi bi-trophy me-2" style="color:#ffc107;"></i>Stat Leaders Explorer</h4>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.35);margin-top:2px;">Top players by stat — 2024 &amp; 2025 seasons</div>
+  </div>
+  <a href="{{ url_for('reports.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Reports
+  </a>
+</div>
+
+{# ── Controls ── #}
+<div class="rounded-3 p-3 mb-4" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="d-flex align-items-center flex-wrap gap-3">
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="ctrl-lbl">Season</span>
+      <div class="d-flex gap-1" id="ldr-seasons">
+        {% for s in seasons %}
+        <button class="pill-btn {% if loop.first %}active{% endif %}" data-val="{{ s }}">{{ s }}</button>
+        {% else %}
+        <button class="pill-btn active" data-val="2025">2025</button>
+        <button class="pill-btn" data-val="2024">2024</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="ctrl-lbl">Category</span>
+      <div class="d-flex gap-1 flex-wrap" id="ldr-cats">
+        <button class="pill-btn active" data-val="passing" data-stat="YDS">Passing</button>
+        <button class="pill-btn" data-val="rushing" data-stat="YDS">Rushing</button>
+        <button class="pill-btn" data-val="receiving" data-stat="YDS">Receiving</button>
+        <button class="pill-btn" data-val="defensive" data-stat="TOT">Defense</button>
+        <button class="pill-btn" data-val="kicking" data-stat="FGM">Kicking</button>
+        <button class="pill-btn" data-val="punting" data-stat="YDS">Punting</button>
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="ctrl-lbl">Stat</span>
+      <select id="ldr-stat-sel" class="ctrl-sel"></select>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="ctrl-lbl">Position</span>
+      <select id="ldr-pos-sel" class="ctrl-sel">
+        <option value="">All</option>
+        {% for p in positions %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span class="ctrl-lbl">Limit</span>
+      <select id="ldr-limit-sel" class="ctrl-sel">
+        <option value="10">Top 10</option>
+        <option value="20" selected>Top 20</option>
+        <option value="25">Top 25</option>
+      </select>
+    </div>
+
+  </div>
+</div>
+
+{# ── Charts + Table ── #}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-xl-7">
+    <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div id="ldr-chart-title" class="chart-lbl mb-2">Passing Yards Leaders — 2025</div>
+      <div id="ldr-empty" class="text-center py-5" style="display:none;color:rgba(255,255,255,.25);">
+        <i class="bi bi-bar-chart d-block mb-2" style="font-size:2.5rem;opacity:.3;"></i>
+        No data for this selection.
+      </div>
+      <canvas id="ldrChart" height="280"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-xl-5">
+    <div class="rounded-3 p-3 h-100" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="chart-lbl mb-2">Full Leaderboard</div>
+      <div id="ldr-table-wrap" style="overflow-x:auto;"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.ctrl-lbl { font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);white-space:nowrap; }
+.ctrl-sel { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;padding:4px 10px;border-radius:6px;font-size:.82rem;cursor:pointer; }
+.ctrl-sel:focus { outline:none;border-color:#69BE28; }
+.pill-btn { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);padding:3px 12px;border-radius:50px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .12s; }
+.pill-btn:hover:not(.active) { background:rgba(255,255,255,.12);color:#fff; }
+.pill-btn.active { background:#ffc107;border-color:#ffc107;color:#000; }
+.chart-lbl { font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35); }
+.ldr-tbl { width:100%;border-collapse:collapse;font-size:.8rem; }
+.ldr-tbl th { padding:6px 10px;text-align:left;font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.3);border-bottom:1px solid rgba(105,190,40,.15); }
+.ldr-tbl td { padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:#e2e8f0; }
+.ldr-tbl tr:last-child td { border-bottom:none; }
+.ldr-tbl tr:hover td { background:rgba(255,255,255,.03); }
+.team-badge { font-size:.62rem;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px; }
+</style>
+<script>
+Chart.defaults.color = '#adb5bd';
+Chart.defaults.font.family = "'Barlow Condensed','Segoe UI',sans-serif";
+const DARK = { grid:'rgba(255,255,255,.05)', tooltip:{bg:'#1a1a2e',border:'#2a2a4a'} };
+
+const STAT_OPTS = {
+  passing:   [['YDS','Yards'],['TD','TDs'],['CMP','Completions'],['ATT','Attempts'],['INT','INTs'],['RTG','Rating'],['QBR','QBR']],
+  rushing:   [['YDS','Yards'],['TD','TDs'],['CAR','Carries'],['AVG','Avg/Car'],['LNG','Long']],
+  receiving: [['YDS','Yards'],['REC','Receptions'],['TD','TDs'],['TGTS','Targets'],['AVG','Avg/Rec'],['LNG','Long']],
+  defensive: [['TOT','Total Tackles'],['SOLO','Solo'],['SCK','Sacks'],['TFL','Tackles for Loss'],['PD','Pass Def'],['FF','Forced Fum'],['FR','Fum Recovery']],
+  kicking:   [['FGM','FG Made'],['FGA','FG Att'],['XPM','XP Made'],['LK','Long FG']],
+  punting:   [['YDS','Total Yards'],['AVG','Avg'],['NET','Net Avg'],['LNG','Long'],['NO','Punts']],
+};
+
+let state = { season:'', cat:'passing', stat:'YDS', pos:'', limit:20 };
+let ldrChart = null;
+
+function setStatOpts(cat, def) {
+  const sel = document.getElementById('ldr-stat-sel');
+  const opts = STAT_OPTS[cat] || [['YDS','Yards']];
+  sel.innerHTML = opts.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+  sel.value = def || opts[0][0];
+  state.stat = sel.value;
+}
+
+async function load() {
+  const { season, cat, stat, pos, limit } = state;
+  let url = `/api/reports/stat-leaders?category=${cat}&stat_type=${stat}&limit=${limit}`;
+  if (season) url += `&season=${season}`;
+  const data = await fetch(url).then(r=>r.json()).catch(()=>[]);
+
+  // position filter client-side
+  const filtered = pos ? data.filter(d => d.position === pos || !pos) : data;
+
+  const statLabel = (STAT_OPTS[cat]||[]).find(([v])=>v===stat)?.[1] || stat;
+  const seasonLabel = season || 'All Seasons';
+  document.getElementById('ldr-chart-title').textContent =
+    `${cat.charAt(0).toUpperCase()+cat.slice(1)} — ${statLabel} Leaders — ${seasonLabel}`;
+
+  const empty = document.getElementById('ldr-empty');
+  const canvas = document.getElementById('ldrChart');
+  if (!filtered.length) {
+    empty.style.display=''; canvas.style.display='none';
+    document.getElementById('ldr-table-wrap').innerHTML = '<p style="color:rgba(255,255,255,.3);font-size:.8rem;padding:8px;">No data.</p>';
+    return;
+  }
+  empty.style.display='none'; canvas.style.display='';
+
+  if (ldrChart) { ldrChart.destroy(); ldrChart=null; }
+  ldrChart = new Chart(document.getElementById('ldrChart').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels: filtered.map(d=>d.player),
+      datasets:[{
+        label: statLabel,
+        data: filtered.map(d=>d.total),
+        backgroundColor: filtered.map(d=>(d.team_color||'#69BE28')+'BB'),
+        borderColor:     filtered.map(d=>d.team_color||'#69BE28'),
+        borderWidth:1, borderRadius:4,
+      }]
+    },
+    options:{
+      responsive:true, indexAxis:'y',
+      plugins:{ legend:{display:false},
+        tooltip:{ backgroundColor:DARK.tooltip.bg, borderColor:DARK.tooltip.border, borderWidth:1, titleColor:'#fff', bodyColor:'#ccc',
+          callbacks:{ afterLabel: ctx => '  '+( filtered[ctx.dataIndex]?.team||'') }}
+      },
+      scales:{
+        x:{ grid:{color:DARK.grid}, ticks:{color:'#adb5bd'} },
+        y:{ grid:{color:'transparent'}, ticks:{color:'#e2e8f0', font:{weight:600}} },
+      },
+    }
+  });
+
+  // Table
+  const fmtV = v => Number.isInteger(v) ? v : v.toFixed(1);
+  const rows = filtered.map((d,i) => `<tr>
+    <td style="color:rgba(255,255,255,.35);width:28px;">${i+1}</td>
+    <td>
+      <a href="/stats/player/${d.player_id}" style="color:#e2e8f0;text-decoration:none;font-weight:600;">${d.player}</a>
+      <span class="team-badge" style="background:${d.team_color||'#444'}22;color:${d.team_color||'#aaa'};border:1px solid ${d.team_color||'#444'}44;">${d.team||'—'}</span>
+    </td>
+    <td style="text-align:right;font-weight:700;color:#fff;">${fmtV(d.total)}</td>
+  </tr>`).join('');
+  document.getElementById('ldr-table-wrap').innerHTML = `
+    <table class="ldr-tbl">
+      <thead><tr><th>#</th><th>Player</th><th style="text-align:right;">${statLabel}</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// Wire up controls
+document.querySelector('#ldr-seasons').addEventListener('click', e=>{
+  const btn = e.target.closest('.pill-btn'); if (!btn) return;
+  document.querySelectorAll('#ldr-seasons .pill-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  state.season = btn.dataset.val;
+  load();
+});
+document.querySelector('#ldr-cats').addEventListener('click', e=>{
+  const btn = e.target.closest('.pill-btn'); if (!btn) return;
+  document.querySelectorAll('#ldr-cats .pill-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  state.cat = btn.dataset.val;
+  setStatOpts(btn.dataset.val, btn.dataset.stat);
+  load();
+});
+document.getElementById('ldr-stat-sel').addEventListener('change', e=>{ state.stat=e.target.value; load(); });
+document.getElementById('ldr-pos-sel').addEventListener('change', e=>{ state.pos=e.target.value; load(); });
+document.getElementById('ldr-limit-sel').addEventListener('change', e=>{ state.limit=parseInt(e.target.value); load(); });
+
+// Init
+state.season = document.querySelector('#ldr-seasons .pill-btn.active')?.dataset.val || '2025';
+setStatOpts('passing','YDS');
+load();
+</script>
+{% endblock %}

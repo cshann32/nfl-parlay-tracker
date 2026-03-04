@@ -1,0 +1,781 @@
+{% extends "base.html" %}
+{% block title %}Predictions & Insights — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<style>
+.pred-hero {
+  background: linear-gradient(135deg, rgba(0,34,68,.92) 0%, rgba(0,17,34,.98) 100%);
+  border: 1px solid rgba(105,190,40,.2);
+  border-radius: 14px;
+  padding: 1.8rem 2rem;
+  margin-bottom: 1.5rem;
+}
+.pred-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--sea-grey);
+  margin-bottom: .3rem;
+}
+.pred-select {
+  background: rgba(0,34,68,.5) !important;
+  border: 1px solid rgba(105,190,40,.2) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  font-size: .88rem;
+}
+.pred-select:focus {
+  border-color: var(--sea-green) !important;
+  box-shadow: 0 0 0 3px rgba(105,190,40,.1) !important;
+}
+.pred-select option { background: #001a30; color: #fff; }
+
+/* Stat boxes */
+.stat-box {
+  background: rgba(0,34,68,.5);
+  border: 1px solid rgba(105,190,40,.12);
+  border-radius: 10px;
+  padding: 1rem .8rem;
+  text-align: center;
+}
+.stat-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  line-height: 1;
+  color: #fff;
+}
+.stat-val.green  { color: var(--sea-green); }
+.stat-val.red    { color: #f87171; }
+.stat-val.yellow { color: #fbbf24; }
+.stat-lbl {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--sea-grey);
+  margin-top: .3rem;
+}
+
+/* VS display */
+.vs-team-block { text-align: center; min-width: 0; }
+.vs-team-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  color: #fff;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vs-divider {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  color: rgba(255,255,255,.25);
+  flex-shrink: 0;
+}
+
+/* Win prob bar */
+.prob-bar-wrap { height: 22px; border-radius: 11px; overflow: hidden; background: rgba(248,113,113,.18); }
+.prob-bar-fill { height: 100%; border-radius: 11px 0 0 11px; transition: width .8s ease; }
+
+/* Power rankings */
+.rank-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  color: rgba(255,255,255,.25);
+  min-width: 36px;
+}
+.rank-num.top3 { color: var(--sea-green); }
+.diff-pill {
+  display: inline-block;
+  padding: .15rem .5rem;
+  border-radius: 20px;
+  font-size: .7rem;
+  font-weight: 700;
+}
+.diff-pos { background: rgba(105,190,40,.15); color: var(--sea-green); border: 1px solid rgba(105,190,40,.3); }
+.diff-neg { background: rgba(248,113,113,.12); color: #f87171; border: 1px solid rgba(248,113,113,.25); }
+.diff-neu { background: rgba(255,255,255,.06); color: rgba(255,255,255,.5); border: 1px solid rgba(255,255,255,.1); }
+
+/* Streak badge */
+.streak-badge {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  line-height: 1;
+  padding: .3rem .8rem;
+  border-radius: 8px;
+}
+.streak-w { background: rgba(105,190,40,.18); color: var(--sea-green); border: 1px solid rgba(105,190,40,.35); }
+.streak-l { background: rgba(248,113,113,.12); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
+
+/* Sparkline dots */
+.spark-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: .65rem;
+  font-weight: 700;
+}
+.spark-w { background: rgba(105,190,40,.2); color: var(--sea-green); border: 1px solid rgba(105,190,40,.4); }
+.spark-l { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
+.spark-p { background: rgba(255,255,255,.06); color: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.15); }
+
+/* Confidence badge */
+.conf-high   { color: var(--sea-green); }
+.conf-medium { color: #fbbf24; }
+.conf-low    { color: rgba(255,255,255,.4); }
+
+/* Tabs */
+.pred-tabs .nav-link {
+  color: var(--sea-grey);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: .65rem 1.2rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: .82rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transition: color .2s, border-color .2s;
+}
+.pred-tabs .nav-link:hover { color: #fff; }
+.pred-tabs .nav-link.active {
+  color: var(--sea-green);
+  border-bottom-color: var(--sea-green);
+  background: transparent;
+}
+</style>
+
+{# ── Breadcrumb ── #}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="{{ url_for('stats.index') }}" class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1">
+    <i class="bi bi-arrow-left"></i> Stats
+  </a>
+</div>
+
+{# ── Page header ── #}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <i class="bi bi-lightning-charge-fill" style="font-size:1.8rem;color:var(--sea-green);"></i>
+  <div>
+    <div class="pred-label" style="margin-bottom:.1rem;">AI-Free · Rule-Based · Historical Data</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:2.2rem;line-height:1;color:#fff;">PREDICTIONS &amp; INSIGHTS</div>
+  </div>
+</div>
+
+{# ── Tabs ── #}
+<ul class="nav pred-tabs border-bottom border-secondary mb-4" id="predTabs">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabPredictor">
+      <i class="bi bi-graph-up-arrow me-1"></i>Game Predictor
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabRankings">
+      <i class="bi bi-list-ol me-1"></i>Power Rankings
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabInsights">
+      <i class="bi bi-cash-stack me-1"></i>My Betting Insights
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+{# ══════════════════════════════════════════════════
+   TAB 1 — Game Predictor
+══════════════════════════════════════════════════ #}
+<div class="tab-pane fade show active" id="tabPredictor">
+
+  {# Selector form #}
+  <div class="pred-hero">
+    <form method="GET" action="{{ url_for('stats.predictions') }}#tabPredictor" class="row g-3 align-items-end">
+      <input type="hidden" name="_tab" value="predictor">
+      <div class="col-12 col-md-4">
+        <div class="pred-label">Home Team</div>
+        <select name="home_id" class="form-select pred-select">
+          <option value="">— select —</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}" {{ 'selected' if home_id == t.id }}>{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="pred-label">Away Team</div>
+        <select name="away_id" class="form-select pred-select">
+          <option value="">— select —</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}" {{ 'selected' if away_id == t.id }}>{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <div class="pred-label">Season</div>
+        <select name="season" class="form-select pred-select">
+          <option value="2025" {{ 'selected' if season == 2025 }}>2025</option>
+          <option value="2024" {{ 'selected' if season == 2024 }}>2024</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <button type="submit"
+                class="btn w-100"
+                style="background:var(--sea-green);color:#001a0a;font-family:'Bebas Neue';font-size:1rem;letter-spacing:.06em;border:none;border-radius:8px;padding:.5rem;">
+          PREDICT
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {# Prediction result #}
+  {% if prediction %}
+    {% if prediction.get('error') %}
+    <div class="alert alert-warning">{{ prediction.error }}</div>
+    {% else %}
+
+    {# Teams vs banner #}
+    <div class="card mb-3" style="border-color:rgba(105,190,40,.15);">
+      <div class="card-body py-3">
+        <div class="d-flex align-items-center justify-content-between gap-3">
+          {# Home team #}
+          <div class="vs-team-block flex-fill">
+            {% if prediction.home_team and prediction.home_team.logo_url %}
+            <img src="{{ prediction.home_team.logo_url }}" style="width:44px;height:44px;object-fit:contain;margin-bottom:.4rem;">
+            {% endif %}
+            <div class="vs-team-name">{{ prediction.home_team.name if prediction.home_team else 'Home' }}</div>
+            <div style="font-size:.65rem;color:var(--sea-grey);font-weight:700;letter-spacing:.1em;text-transform:uppercase;">HOME</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:var(--sea-green);line-height:1.1;">
+              {{ prediction.home_exp }}
+            </div>
+            <div style="font-size:.65rem;color:var(--sea-grey);">expected pts</div>
+          </div>
+          {# VS #}
+          <div class="vs-divider">VS</div>
+          {# Away team #}
+          <div class="vs-team-block flex-fill">
+            {% if prediction.away_team and prediction.away_team.logo_url %}
+            <img src="{{ prediction.away_team.logo_url }}" style="width:44px;height:44px;object-fit:contain;margin-bottom:.4rem;">
+            {% endif %}
+            <div class="vs-team-name">{{ prediction.away_team.name if prediction.away_team else 'Away' }}</div>
+            <div style="font-size:.65rem;color:var(--sea-grey);font-weight:700;letter-spacing:.1em;text-transform:uppercase;">AWAY</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:#f87171;line-height:1.1;">
+              {{ prediction.away_exp }}
+            </div>
+            <div style="font-size:.65rem;color:var(--sea-grey);">expected pts</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Summary stats row #}
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="stat-box">
+          <div class="stat-val green">{{ (prediction.home_win_prob * 100) | round(0) | int }}%</div>
+          <div class="stat-lbl">{{ prediction.home_team.abbreviation if prediction.home_team else 'HOME' }} WIN PROB</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-box">
+          <div class="stat-val red">{{ (prediction.away_win_prob * 100) | round(0) | int }}%</div>
+          <div class="stat-lbl">{{ prediction.away_team.abbreviation if prediction.away_team else 'AWAY' }} WIN PROB</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-box">
+          <div class="stat-val" style="color:var(--sea-green);">
+            {% if prediction.margin > 0 %}+{% endif %}{{ prediction.margin }}
+          </div>
+          <div class="stat-lbl">HOME MARGIN</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-box">
+          <div class="stat-val conf-{{ prediction.confidence | lower }}">
+            {{ prediction.confidence }}
+          </div>
+          <div class="stat-lbl">CONFIDENCE</div>
+        </div>
+      </div>
+    </div>
+
+    {# Win probability bar #}
+    <div class="card mb-3" style="border-color:rgba(105,190,40,.15);">
+      <div class="card-body">
+        <div class="pred-label mb-2">WIN PROBABILITY</div>
+        <div class="prob-bar-wrap">
+          <div class="prob-bar-fill"
+               style="width:{{ (prediction.home_win_prob * 100) | round(0) | int }}%;
+                      background:linear-gradient(90deg,var(--sea-green),#3ab84a);">
+          </div>
+        </div>
+        <div class="d-flex justify-content-between mt-1">
+          <span style="font-size:.7rem;color:var(--sea-green);font-weight:700;">
+            {{ prediction.home_team.abbreviation if prediction.home_team else 'HM' }}
+            {{ (prediction.home_win_prob * 100) | round(0) | int }}%
+          </span>
+          <span style="font-size:.7rem;color:#f87171;font-weight:700;">
+            {{ (prediction.away_win_prob * 100) | round(0) | int }}%
+            {{ prediction.away_team.abbreviation if prediction.away_team else 'AW' }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {# Team stats breakdown #}
+    <div class="row g-3 mb-3">
+      {% for side, team_obj, season_data, recent_data in [
+          ('Home', prediction.home_team, prediction.home_season, prediction.home_recent),
+          ('Away', prediction.away_team, prediction.away_season, prediction.away_recent)
+      ] %}
+      <div class="col-12 col-md-6">
+        <div class="card h-100" style="border-color:rgba(105,190,40,.12);">
+          <div class="card-header" style="border-bottom:1px solid rgba(105,190,40,.1);">
+            <i class="bi bi-shield-fill me-1" style="color:var(--sea-green);"></i>
+            {{ team_obj.name if team_obj else side }} — Season Stats
+          </div>
+          <div class="card-body">
+            <div class="row text-center g-2">
+              <div class="col-4">
+                <div class="pred-label">PPG</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--sea-green);">{{ season_data.ppg }}</div>
+              </div>
+              <div class="col-4">
+                <div class="pred-label">OPP PPG</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:#f87171;">{{ season_data.papg }}</div>
+              </div>
+              <div class="col-4">
+                <div class="pred-label">GAMES</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:rgba(255,255,255,.5);">{{ season_data.games }}</div>
+              </div>
+            </div>
+            {% if recent_data and recent_data.games >= 3 %}
+            <hr style="border-color:rgba(255,255,255,.06);">
+            <div class="pred-label mb-1">LAST {{ recent_data.games }} GAMES</div>
+            <div class="row text-center g-2">
+              <div class="col-6">
+                <div class="pred-label">PPG</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--sea-green);">{{ recent_data.ppg }}</div>
+              </div>
+              <div class="col-6">
+                <div class="pred-label">OPP PPG</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:#f87171;">{{ recent_data.papg }}</div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="text-center" style="font-size:.75rem;color:rgba(255,255,255,.25);">
+      <i class="bi bi-info-circle me-1"></i>
+      Predictions use points scored/allowed averages with home-field advantage (+3 pts).
+      For entertainment purposes only — not financial advice.
+    </div>
+
+    {% endif %}
+  {% else %}
+  <div class="text-center py-5" style="color:var(--sea-grey);">
+    <i class="bi bi-lightning-charge" style="font-size:3rem;display:block;margin-bottom:.8rem;opacity:.3;"></i>
+    Select a home team and away team above to generate a prediction.
+  </div>
+  {% endif %}
+
+</div>{# end tabPredictor #}
+
+{# ══════════════════════════════════════════════════
+   TAB 2 — Power Rankings
+══════════════════════════════════════════════════ #}
+<div class="tab-pane fade" id="tabRankings">
+
+  {% if power_rankings %}
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <div class="pred-label">{{ season }} SEASON · BASED ON FINAL SCORES</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;line-height:1;color:#fff;">TEAM POWER RANKINGS</div>
+    </div>
+    <div class="text-end" style="font-size:.7rem;color:rgba(255,255,255,.3);">
+      Ranked by avg point differential per game
+    </div>
+  </div>
+
+  <div class="card" style="border-color:rgba(105,190,40,.15);">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr style="border-bottom:1px solid rgba(105,190,40,.15);">
+              <th class="ps-3 py-2" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;width:48px;">#</th>
+              <th class="py-2" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">TEAM</th>
+              <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">GP</th>
+              <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">PPG</th>
+              <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">OPP PPG</th>
+              <th class="pe-3 py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">DIFF</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in power_rankings %}
+            <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+              <td class="ps-3 py-2">
+                <span class="rank-num {{ 'top3' if r.rank <= 3 else '' }}">{{ r.rank }}</span>
+              </td>
+              <td class="py-2">
+                <div class="d-flex align-items-center gap-2">
+                  {% if r.team.logo_url %}
+                  <img src="{{ r.team.logo_url }}" style="width:24px;height:24px;object-fit:contain;">
+                  {% endif %}
+                  <div>
+                    <div style="font-weight:600;font-size:.85rem;color:#fff;">{{ r.team.name }}</div>
+                    <div style="font-size:.65rem;color:var(--sea-grey);">{{ r.team.abbreviation }} · {{ r.team.division or '' }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="py-2 text-center" style="font-size:.82rem;color:rgba(255,255,255,.45);">{{ r.games }}</td>
+              <td class="py-2 text-center" style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--sea-green);">{{ r.ppg }}</td>
+              <td class="py-2 text-center" style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#f87171;">{{ r.papg }}</td>
+              <td class="pe-3 py-2 text-center">
+                <span class="diff-pill {{ 'diff-pos' if r.diff > 0 else ('diff-neg' if r.diff < 0 else 'diff-neu') }}">
+                  {% if r.diff > 0 %}+{% endif %}{{ r.diff }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {# Mini chart of top 10 #}
+  <div class="card mt-3" style="border-color:rgba(105,190,40,.15);">
+    <div class="card-header"><i class="bi bi-bar-chart-fill me-1" style="color:var(--sea-green);"></i>TOP 16 — POINT DIFFERENTIAL</div>
+    <div class="card-body">
+      <canvas id="rankChart" height="100"></canvas>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="text-center py-5" style="color:var(--sea-grey);">
+    <i class="bi bi-shield-slash" style="font-size:3rem;display:block;margin-bottom:.8rem;opacity:.3;"></i>
+    No completed game data found for {{ season }} season.
+  </div>
+  {% endif %}
+
+</div>{# end tabRankings #}
+
+{# ══════════════════════════════════════════════════
+   TAB 3 — My Betting Insights
+══════════════════════════════════════════════════ #}
+<div class="tab-pane fade" id="tabInsights">
+
+  {% if betting_insights.no_data %}
+  <div class="text-center py-5" style="color:var(--sea-grey);">
+    <i class="bi bi-cash-stack" style="font-size:3rem;display:block;margin-bottom:.8rem;opacity:.3;"></i>
+    No settled parlays yet. Come back after your bets are graded!
+  </div>
+  {% else %}
+
+  {# Overall KPIs #}
+  <div class="pred-label mb-2">OVERALL PERFORMANCE</div>
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-2">
+      <div class="stat-box">
+        <div class="stat-val {{ 'green' if betting_insights.win_rate >= 50 else 'red' }}">
+          {{ betting_insights.win_rate }}%
+        </div>
+        <div class="stat-lbl">WIN RATE</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-box">
+        <div class="stat-val {{ 'green' if betting_insights.roi >= 0 else 'red' }}">
+          {{ '+' if betting_insights.roi >= 0 else '' }}{{ betting_insights.roi }}%
+        </div>
+        <div class="stat-lbl">ROI</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-box">
+        <div class="stat-val {{ 'green' if betting_insights.profit >= 0 else 'red' }}">
+          {{ '+$' if betting_insights.profit >= 0 else '-$' }}{{ betting_insights.profit | abs | round(2) }}
+        </div>
+        <div class="stat-lbl">NET P/L</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-box">
+        <div class="stat-val">{{ betting_insights.won }}-{{ betting_insights.lost }}</div>
+        <div class="stat-lbl">W-L RECORD</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-box">
+        <div class="stat-val" style="color:rgba(255,255,255,.5);">${{ betting_insights.total_wagered | round(2) }}</div>
+        <div class="stat-lbl">TOTAL WAGERED</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="stat-box">
+        <div class="stat-val" style="color:rgba(255,255,255,.5);">{{ betting_insights.total }}</div>
+        <div class="stat-lbl">PARLAYS</div>
+      </div>
+    </div>
+  </div>
+
+  {# Streak + recent sparkline #}
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+      <div class="card h-100" style="border-color:rgba(105,190,40,.12);">
+        <div class="card-body text-center d-flex flex-column align-items-center justify-content-center py-4">
+          <div class="pred-label mb-2">CURRENT STREAK</div>
+          {% if betting_insights.streak > 0 %}
+          <div class="streak-badge streak-{{ betting_insights.streak_type | lower }}">
+            {{ betting_insights.streak }}{{ betting_insights.streak_type }}
+          </div>
+          <div style="font-size:.7rem;color:var(--sea-grey);margin-top:.5rem;">
+            in a row
+          </div>
+          {% else %}
+          <div style="color:var(--sea-grey);">No streak</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-8">
+      <div class="card h-100" style="border-color:rgba(105,190,40,.12);">
+        <div class="card-body">
+          <div class="pred-label mb-2">LAST {{ betting_insights.recent | length }} RESULTS</div>
+          <div class="d-flex flex-wrap gap-1">
+            {% for r in betting_insights.recent %}
+            <span class="spark-dot spark-{{ r | lower }}">{{ r }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# By leg count #}
+  {% if betting_insights.by_legs %}
+  <div class="pred-label mb-2">PERFORMANCE BY LEG COUNT</div>
+  <div class="card mb-4" style="border-color:rgba(105,190,40,.12);">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr style="border-bottom:1px solid rgba(105,190,40,.1);">
+              <th class="ps-3 py-2" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">LEGS</th>
+              <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">BETS</th>
+              <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">WIN RATE</th>
+              <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">ROI</th>
+              <th class="pe-3 py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">WAGERED</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in betting_insights.by_legs %}
+            <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+              <td class="ps-3 py-2">
+                <span style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#fff;">{{ row.legs }}-leg</span>
+              </td>
+              <td class="py-2 text-center" style="font-size:.85rem;color:rgba(255,255,255,.5);">{{ row.total }}</td>
+              <td class="py-2 text-center">
+                <span class="diff-pill {{ 'diff-pos' if row.win_rate >= 50 else 'diff-neg' }}">{{ row.win_rate }}%</span>
+              </td>
+              <td class="py-2 text-center">
+                <span class="diff-pill {{ 'diff-pos' if row.roi >= 0 else 'diff-neg' }}">
+                  {{ '+' if row.roi >= 0 else '' }}{{ row.roi }}%
+                </span>
+              </td>
+              <td class="pe-3 py-2 text-center" style="font-size:.82rem;color:rgba(255,255,255,.4);">${{ row.wagered | round(2) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# By sportsbook + By type side by side #}
+  <div class="row g-3 mb-4">
+    {% if betting_insights.by_book %}
+    <div class="col-12 col-md-6">
+      <div class="pred-label mb-2">BY SPORTSBOOK</div>
+      <div class="card" style="border-color:rgba(105,190,40,.12);">
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr style="border-bottom:1px solid rgba(105,190,40,.1);">
+                <th class="ps-3 py-2" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">BOOK</th>
+                <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">BETS</th>
+                <th class="pe-3 py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">WIN %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in betting_insights.by_book %}
+              <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+                <td class="ps-3 py-2" style="font-size:.85rem;font-weight:600;color:#fff;">{{ row.book }}</td>
+                <td class="py-2 text-center" style="font-size:.82rem;color:rgba(255,255,255,.5);">{{ row.total }}</td>
+                <td class="pe-3 py-2 text-center">
+                  <span class="diff-pill {{ 'diff-pos' if row.win_rate >= 50 else 'diff-neg' }}">{{ row.win_rate }}%</span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if betting_insights.by_type %}
+    <div class="col-12 col-md-6">
+      <div class="pred-label mb-2">BY BET TYPE</div>
+      <div class="card" style="border-color:rgba(105,190,40,.12);">
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr style="border-bottom:1px solid rgba(105,190,40,.1);">
+                <th class="ps-3 py-2" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">TYPE</th>
+                <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">LEGS</th>
+                <th class="pe-3 py-2 text-center" style="color:var(--sea-grey);font-size:.65rem;letter-spacing:.07em;">WIN %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in betting_insights.by_type %}
+              <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+                <td class="ps-3 py-2" style="font-size:.85rem;font-weight:600;color:#fff;text-transform:capitalize;">
+                  {{ row.leg_type | replace('_', ' ') }}
+                </td>
+                <td class="py-2 text-center" style="font-size:.82rem;color:rgba(255,255,255,.5);">{{ row.total }}</td>
+                <td class="pe-3 py-2 text-center">
+                  <span class="diff-pill {{ 'diff-pos' if row.win_rate >= 50 else 'diff-neg' }}">{{ row.win_rate }}%</span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# Wagered vs ROI chart #}
+  {% if betting_insights.by_legs | length > 1 %}
+  <div class="card" style="border-color:rgba(105,190,40,.12);">
+    <div class="card-header"><i class="bi bi-bar-chart-fill me-1" style="color:var(--sea-green);"></i>WIN RATE BY LEG COUNT</div>
+    <div class="card-body">
+      <canvas id="insightChart" height="90"></canvas>
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}{# end no_data check #}
+
+</div>{# end tabInsights #}
+
+</div>{# end tab-content #}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Restore active tab from URL hash
+(function() {
+  const hash = window.location.hash;
+  if (hash) {
+    const btn = document.querySelector(`[data-bs-target="${hash}"]`);
+    if (btn) { bootstrap.Tab.getOrCreateInstance(btn).show(); }
+  }
+  document.querySelectorAll('[data-bs-toggle="tab"]').forEach(btn => {
+    btn.addEventListener('shown.bs.tab', e => {
+      history.replaceState(null, '', e.target.dataset.bsTarget);
+    });
+  });
+})();
+
+{% if power_rankings %}
+// Power rankings bar chart (top 16)
+(function() {
+  const labels = [{% for r in power_rankings[:16] %}{{ (r.team.abbreviation or r.team.name) | tojson }}{% if not loop.last %},{% endif %}{% endfor %}];
+  const diffs  = [{% for r in power_rankings[:16] %}{{ r.diff }}{% if not loop.last %},{% endif %}{% endfor %}];
+  const colors = diffs.map(d => d >= 0 ? 'rgba(105,190,40,.75)' : 'rgba(248,113,113,.65)');
+
+  new Chart(document.getElementById('rankChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Pt Differential / Game',
+        data: diffs,
+        backgroundColor: colors,
+        borderColor: colors.map(c => c.replace('.75','1').replace('.65','1')),
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.raw > 0 ? '+' : ''}${ctx.raw} pts/gm` } }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#a5acaf', font: { size: 11 } }, border: { color: 'rgba(255,255,255,.08)' } },
+        y: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#a5acaf', font: { size: 11 } }, border: { color: 'rgba(255,255,255,.08)' } },
+      }
+    }
+  });
+})();
+{% endif %}
+
+{% if not betting_insights.no_data and betting_insights.by_legs | length > 1 %}
+// Insights chart
+(function() {
+  const byLegs = {{ betting_insights.by_legs | tojson }};
+  const labels = byLegs.map(r => r.legs + '-leg');
+  const rates  = byLegs.map(r => r.win_rate);
+
+  new Chart(document.getElementById('insightChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Win Rate %',
+        data: rates,
+        backgroundColor: rates.map(r => r >= 50 ? 'rgba(105,190,40,.7)' : 'rgba(248,113,113,.6)'),
+        borderRadius: 5,
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `Win Rate: ${ctx.raw}%` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#a5acaf', font: { size: 12 } }, border: { color: 'rgba(255,255,255,.08)' } },
+        y: {
+          min: 0, max: 100,
+          grid: { color: 'rgba(255,255,255,.05)' },
+          ticks: { color: '#a5acaf', font: { size: 11 }, callback: v => v + '%' },
+          border: { color: 'rgba(255,255,255,.08)' }
+        }
+      }
+    }
+  });
+})();
+{% endif %}
+</script>
+{% endblock %}

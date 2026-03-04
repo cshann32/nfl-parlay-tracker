@@ -1,0 +1,797 @@
+{% extends "base.html" %}
+{% block title %}
+  {{ game.away_team.abbreviation if game.away_team else '?' }} @
+  {{ game.home_team.abbreviation if game.home_team else '?' }}
+  — W{{ game.week }} {{ game.season_year }}
+{% endblock %}
+{% block content %}
+
+{% set ht  = game.home_team %}
+{% set at  = game.away_team %}
+{% set hc  = ht.primary_color if ht and ht.primary_color else '#6c757d' %}
+{% set ac  = at.primary_color if at and at.primary_color else '#6c757d' %}
+{% set is_final = game.status and 'final' in game.status | lower %}
+{% set is_live  = game.status and ('progress' in game.status | lower or 'live' in game.status | lower) %}
+{% set home_wins = is_final and game.home_score is not none and game.away_score is not none and game.home_score > game.away_score %}
+{% set away_wins = is_final and game.home_score is not none and game.away_score is not none and game.away_score > game.home_score %}
+
+{# Back #}
+<a href="{{ url_for('schedules.index') }}"
+   class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1 mb-3">
+  <i class="bi bi-arrow-left"></i> Schedule
+</a>
+
+{# ── HERO ── #}
+<div class="rounded-3 overflow-hidden mb-4"
+     style="background:#111820;border:1px solid rgba(255,255,255,.09);">
+  <div style="height:4px;background:linear-gradient(to right, {{ ac }} 50%, {{ hc }} 50%);"></div>
+
+  {# Week / status bar #}
+  <div class="d-flex align-items-center justify-content-between px-4 pt-3 pb-1">
+    <span style="font-size:.68rem;font-weight:700;text-transform:uppercase;
+                 letter-spacing:.12em;color:rgba(255,255,255,.35);">
+      {% if game.week %}Week {{ game.week }}{% endif %}
+      {% if game.season_type and game.season_type not in ['Regular','Regular Season'] %}
+      · {{ game.season_type }}
+      {% endif %}
+      {% if game.season_year %} · {{ game.season_year }}{% endif %}
+    </span>
+    <span class="sched-status
+      {% if is_final %}status-final{% elif is_live %}status-live{% else %}status-sched{% endif %}">
+      {{ game.status or 'Scheduled' }}
+    </span>
+  </div>
+
+  {# Matchup #}
+  <div class="d-flex align-items-center justify-content-center gap-4 px-4 py-4">
+
+    {# Away #}
+    <div class="text-center" style="flex:1;max-width:220px;">
+      {% if at and at.logo_url %}
+      <img src="{{ at.logo_url }}" alt="{{ at.abbreviation }}"
+           style="height:80px;object-fit:contain;margin-bottom:12px;
+                  opacity:{% if home_wins %}0.4{% else %}1{% endif %};">
+      {% endif %}
+      <div style="font-size:1.5rem;font-weight:900;letter-spacing:-.02em;
+                  color:{% if away_wins %}#fff{% elif home_wins %}rgba(255,255,255,.35){% else %}rgba(255,255,255,.9){% endif %};">
+        {{ at.abbreviation if at else '?' }}
+      </div>
+      <div style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:2px;">AWAY</div>
+    </div>
+
+    {# Score block #}
+    <div class="text-center flex-shrink-0">
+      {% if game.away_score is not none and game.home_score is not none %}
+      <div class="d-flex align-items-center gap-4">
+        <div style="font-size:3.5rem;font-weight:900;line-height:1;
+                    color:{% if away_wins %}#fff{% else %}rgba(255,255,255,.35){% endif %};">
+          {{ game.away_score }}
+        </div>
+        <div style="font-size:1rem;font-weight:700;color:rgba(255,255,255,.2);">—</div>
+        <div style="font-size:3.5rem;font-weight:900;line-height:1;
+                    color:{% if home_wins %}#fff{% else %}rgba(255,255,255,.35){% endif %};">
+          {{ game.home_score }}
+        </div>
+      </div>
+      {% if is_live %}
+      <div class="d-flex align-items-center justify-content-center gap-2 mt-2">
+        <div class="live-dot"></div>
+        <span style="font-size:.72rem;color:#fbbf24;font-weight:700;">LIVE</span>
+      </div>
+      {% elif is_final %}
+      <div style="font-size:.65rem;color:rgba(255,255,255,.25);margin-top:6px;
+                  text-transform:uppercase;letter-spacing:.1em;">Final</div>
+      {% endif %}
+      {% else %}
+      <div style="font-size:.9rem;color:rgba(255,255,255,.3);">
+        {{ game.game_date.strftime('%a, %b %-d · %-I:%M %p') if game.game_date else 'TBD' }}
+      </div>
+      {% endif %}
+      {% if game.broadcast %}
+      <div style="font-size:.65rem;color:rgba(255,255,255,.25);margin-top:4px;
+                  text-transform:uppercase;letter-spacing:.08em;">{{ game.broadcast }}</div>
+      {% endif %}
+    </div>
+
+    {# Home #}
+    <div class="text-center" style="flex:1;max-width:220px;">
+      {% if ht and ht.logo_url %}
+      <img src="{{ ht.logo_url }}" alt="{{ ht.abbreviation }}"
+           style="height:80px;object-fit:contain;margin-bottom:12px;
+                  opacity:{% if away_wins %}0.4{% else %}1{% endif %};">
+      {% endif %}
+      <div style="font-size:1.5rem;font-weight:900;letter-spacing:-.02em;
+                  color:{% if home_wins %}#fff{% elif away_wins %}rgba(255,255,255,.35){% else %}rgba(255,255,255,.9){% endif %};">
+        {{ ht.abbreviation if ht else '?' }}
+      </div>
+      <div style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:2px;">HOME</div>
+    </div>
+
+  </div>
+
+  {# Quarter scores table #}
+  {% if boxscore and (boxscore.home_q1 is not none or boxscore.away_q1 is not none) %}
+  <div class="px-4 pb-4">
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.78rem;">
+        <thead>
+          <tr style="color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;font-size:.62rem;">
+            <th style="text-align:left;padding:6px 12px 6px 0;font-weight:700;min-width:60px;"></th>
+            <th style="text-align:center;padding:6px 10px;">Q1</th>
+            <th style="text-align:center;padding:6px 10px;">Q2</th>
+            <th style="text-align:center;padding:6px 10px;">Q3</th>
+            <th style="text-align:center;padding:6px 10px;">Q4</th>
+            {% if boxscore.home_ot is not none or boxscore.away_ot is not none %}
+            <th style="text-align:center;padding:6px 10px;">OT</th>
+            {% endif %}
+            <th style="text-align:center;padding:6px 10px;color:rgba(255,255,255,.6);font-weight:900;">T</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-top:1px solid rgba(255,255,255,.07);">
+            <td style="padding:8px 12px 8px 0;font-weight:800;
+                       color:{% if away_wins %}#fff{% else %}rgba(255,255,255,.5){% endif %};">
+              {{ at.abbreviation if at else 'Away' }}
+            </td>
+            <td style="text-align:center;padding:8px 10px;color:rgba(255,255,255,.75);">{{ boxscore.away_q1 if boxscore.away_q1 is not none else '—' }}</td>
+            <td style="text-align:center;padding:8px 10px;color:rgba(255,255,255,.75);">{{ boxscore.away_q2 if boxscore.away_q2 is not none else '—' }}</td>
+            <td style="text-align:center;padding:8px 10px;color:rgba(255,255,255,.75);">{{ boxscore.away_q3 if boxscore.away_q3 is not none else '—' }}</td>
+            <td style="text-align:center;padding:8px 10px;color:rgba(255,255,255,.75);">{{ boxscore.away_q4 if boxscore.away_q4 is not none else '—' }}</td>
+            {% if boxscore.home_ot is not none or boxscore.away_ot is not none %}
+            <td style="text-align:center;padding:8px 10px;color:rgba(255,255,255,.75);">{{ boxscore.away_ot if boxscore.away_ot is not none else '—' }}</td>
+            {% endif %}
+            <td style="text-align:center;padding:8px 10px;font-weight:900;font-size:.92rem;
+                       color:{% if away_wins %}#fff{% else %}rgba(255,255,255,.4){% endif %};">
+              {{ game.away_score if game.away_score is not none else '—' }}
+            </td>
+          </tr>
+          <tr style="border-top:1px solid rgba(255,255,255,.07);">
+            <td style="padding:8px 12px 8px 0;font-weight:800;
+                       color:{% if home_wins %}#fff{% else %}rgba(255,255,255,.5){% endif %};">
+              {{ ht.abbreviation if ht else 'Home' }}
+            </td>
+            <td style="text-align:center;padding:8px 10px;color:rgba(255,255,255,.75);">{{ boxscore.home_q1 if boxscore.home_q1 is not none else '—' }}</td>
+            <td style="text-align:center;padding:8px 10px;color:rgba(255,255,255,.75);">{{ boxscore.home_q2 if boxscore.home_q2 is not none else '—' }}</td>
+            <td style="text-align:center;padding:8px 10px;color:rgba(255,255,255,.75);">{{ boxscore.home_q3 if boxscore.home_q3 is not none else '—' }}</td>
+            <td style="text-align:center;padding:8px 10px;color:rgba(255,255,255,.75);">{{ boxscore.home_q4 if boxscore.home_q4 is not none else '—' }}</td>
+            {% if boxscore.home_ot is not none or boxscore.away_ot is not none %}
+            <td style="text-align:center;padding:8px 10px;color:rgba(255,255,255,.75);">{{ boxscore.home_ot if boxscore.home_ot is not none else '—' }}</td>
+            {% endif %}
+            <td style="text-align:center;padding:8px 10px;font-weight:900;font-size:.92rem;
+                       color:{% if home_wins %}#fff{% else %}rgba(255,255,255,.4){% endif %};">
+              {{ game.home_score if game.home_score is not none else '—' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── GAME STATS SUMMARY ── #}
+{% if game_summary %}
+<div class="rounded-3 mb-4 overflow-hidden"
+     style="background:#111820;border:1px solid rgba(255,255,255,.09);">
+  <div class="px-4 pt-3 pb-1 d-flex align-items-center justify-content-between">
+    <span style="font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3);">
+      Game Stats
+    </span>
+    <div class="d-flex align-items-center gap-3" style="font-size:.68rem;font-weight:700;color:rgba(255,255,255,.3);">
+      <span style="color:{{ ac }};">{{ at.abbreviation if at else 'AWAY' }}</span>
+      <span style="color:rgba(255,255,255,.15);">vs</span>
+      <span style="color:{{ hc }};">{{ ht.abbreviation if ht else 'HOME' }}</span>
+    </div>
+  </div>
+  <div class="px-3 pb-3">
+    {% for row in game_summary %}
+    {% set hv = row.home %}
+    {% set av = row.away %}
+    {% set mib = row.get('more_is_better', true) %}
+    {% set is_text = row.get('text_only', false) %}
+    {# Determine which side "wins" this stat #}
+    {% if is_text %}
+      {% set away_wins = false %}
+      {% set home_wins = false %}
+    {% elif mib %}
+      {% set away_wins = av > hv %}
+      {% set home_wins = hv > av %}
+    {% else %}
+      {% set away_wins = av < hv %}
+      {% set home_wins = hv < av %}
+    {% endif %}
+    <div class="d-flex align-items-center gap-2 py-2 gstat-row">
+      {# Away value #}
+      <div style="width:80px;text-align:right;font-size:.9rem;font-weight:700;
+                  color:{% if away_wins %}#e2e8f0{% else %}rgba(255,255,255,.45){% endif %};">
+        {{ av }}
+      </div>
+
+      {# Center bar + label #}
+      <div style="flex:1;position:relative;">
+        <div style="height:22px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden;position:relative;">
+          {% if not is_text %}
+            {% set hv_num = hv | float %}
+            {% set av_num = av | float %}
+            {% set total  = hv_num + av_num %}
+            {% if total > 0 %}
+              {# Each side gets up to 50% of the bar — meeting in the center #}
+              {% set away_pct = (av_num / total * 50) | round(1) %}
+              {% set home_pct = (hv_num / total * 50) | round(1) %}
+              <div style="position:absolute;top:0;left:0;height:100%;
+                          width:{{ away_pct }}%;
+                          background:{{ ac }};opacity:.55;border-radius:4px 0 0 4px;"></div>
+              <div style="position:absolute;top:0;right:0;height:100%;
+                          width:{{ home_pct }}%;
+                          background:{{ hc }};opacity:.55;border-radius:0 4px 4px 0;"></div>
+            {% endif %}
+          {% endif %}
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                      font-size:.6rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+                      color:rgba(255,255,255,.45);">
+            {{ row.label }}
+          </div>
+        </div>
+      </div>
+
+      {# Home value #}
+      <div style="width:80px;text-align:left;font-size:.9rem;font-weight:700;
+                  color:{% if home_wins %}#e2e8f0{% else %}rgba(255,255,255,.45){% endif %};">
+        {{ hv }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ── BOX SCORE ── #}
+{% set has_player_stats = (home_player_stats | length > 0) or (away_player_stats | length > 0) %}
+{% set has_home = home_player_stats | length > 0 %}
+{% set has_away = away_player_stats | length > 0 %}
+{% set has_team = team_comparison | length > 0 %}
+{% set has_injuries = (home_injuries | length > 0) or (away_injuries | length > 0) %}
+
+{% if has_player_stats or has_team or has_injuries or game.api_id %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+  <ul class="nav gap-1 mb-0 flex-wrap" role="tablist">
+  {# Category tabs — one per stat category present in either team #}
+  {% set first_tab = namespace(done=false) %}
+  {% for cat in all_cats %}
+  {% set has_cat = (home_boxscore.get(cat) or away_boxscore.get(cat)) %}
+  {% if has_cat %}
+  <li class="nav-item">
+    <a class="tab-pill {% if not first_tab.done %}active{% endif %}"
+       data-bs-toggle="tab" href="#cat-{{ cat }}" role="tab">
+      {{ CAT_LABELS.get(cat, cat | title) }}
+    </a>
+  </li>
+  {% set first_tab.done = true %}
+  {% endif %}
+  {% endfor %}
+  {% if has_team %}
+  <li class="nav-item">
+    <a class="tab-pill {% if not has_player_stats %}active{% endif %}"
+       data-bs-toggle="tab" href="#team-stats" role="tab">
+      <i class="bi bi-bar-chart-fill me-1"></i> Team
+    </a>
+  </li>
+  {% endif %}
+  <li class="nav-item">
+    <a class="tab-pill {% if not has_player_stats and not has_team %}active{% endif %}"
+       data-bs-toggle="tab" href="#injury-report" role="tab">
+      <i class="bi bi-bandaid-fill me-1" style="color:#f87171;"></i> Injuries
+      {% if has_injuries %}
+      <span class="ms-1" style="background:rgba(248,113,113,.2);color:#f87171;font-size:.62rem;padding:.1rem .35rem;border-radius:3px;font-weight:700;">
+        {{ (home_injuries | length) + (away_injuries | length) }}
+      </span>
+      {% endif %}
+    </a>
+  </li>
+  </ul>
+  {% if game.api_id %}
+  <form method="POST" action="{{ url_for('schedules.fetch_game_stats', game_id=game.id) }}">
+    <button type="submit" class="btn btn-sm btn-outline-secondary"
+            style="font-size:.72rem;" title="Re-fetch stats from ESPN">
+      <i class="bi bi-arrow-clockwise"></i> Refresh Stats
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="tab-content">
+
+  {# ── Category box score panes ── #}
+  {% set first_pane = namespace(done=false) %}
+  {% for cat in all_cats %}
+  {% set away_rows = away_boxscore.get(cat, []) %}
+  {% set home_rows = home_boxscore.get(cat, []) %}
+  {% if away_rows or home_rows %}
+  {% set cols = boxscore_cols.get(cat, []) %}
+
+  <div class="tab-pane {% if not first_pane.done %}show active{% endif %}" id="cat-{{ cat }}" role="tabpanel">
+    {% set first_pane.done = true %}
+
+    {# Build the effective column list: preferred cols that actually appear in data, plus any extras #}
+    {% set data_cols = namespace(vals=[]) %}
+    {% for row in (away_rows + home_rows) %}
+      {% for st in row.vals.keys() %}
+        {% if st not in data_cols.vals %}{% set data_cols.vals = data_cols.vals + [st] %}{% endif %}
+      {% endfor %}
+    {% endfor %}
+    {# Ordered cols: preferred first, then leftovers (namespace required for Jinja2 loop scoping) #}
+    {% set ec = namespace(cols=[]) %}
+    {% for c in cols %}{% if c in data_cols.vals %}{% set ec.cols = ec.cols + [c] %}{% endif %}{% endfor %}
+    {% for c in data_cols.vals %}{% if c not in ec.cols %}{% set ec.cols = ec.cols + [c] %}{% endif %}{% endfor %}
+    {% set eff_cols = ec.cols %}
+
+    <div class="row g-0">
+      {# Away team #}
+      {% if away_rows %}
+      <div class="col-12 col-lg-6 bs-team-col bs-away-col">
+        <div class="bs-team-hdr">
+          {% if at and at.logo_url %}<img src="{{ at.logo_url }}" class="bs-team-logo">{% endif %}
+          <span class="bs-team-abbr" style="color:{{ ac }};">{{ at.abbreviation if at else 'Away' }}</span>
+          <span class="bs-team-label">AWAY</span>
+        </div>
+        <div class="table-responsive">
+          <table class="bs-table">
+            <thead>
+              <tr>
+                <th class="bs-th-player">PLAYER</th>
+                {% for col in eff_cols %}
+                <th class="bs-th-stat">{{ STAT_LABELS.get(col, col) }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in away_rows %}
+              <tr class="bs-row">
+                <td class="bs-td-player">
+                  <div class="bs-player-wrap">
+                    {% if row.player.image_url %}
+                    <img src="{{ row.player.image_url }}" class="bs-player-img">
+                    {% endif %}
+                    <div>
+                      <a href="{{ url_for('stats.player_detail', player_id=row.player.id) }}"
+                         class="bs-player-name">{{ row.player.name }}</a>
+                      {% if row.player.position %}<span class="bs-player-pos">{{ row.player.position }}</span>{% endif %}
+                    </div>
+                  </div>
+                </td>
+                {% for col in eff_cols %}
+                {% set v = row.vals.get(col) %}
+                <td class="bs-td-stat {% if col in ['TD'] and v and v > 0 %}bs-td-td{% elif col in ['INT','FL','LST'] and v and v > 0 %}bs-td-neg{% elif col in ['YDS','REC','CMP'] %}bs-td-key{% endif %}">
+                  {% if v is not none %}
+                    {% if v % 1 == 0 %}{{ v | int }}{% else %}{{ v | round(1) }}{% endif %}
+                  {% else %}—{% endif %}
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      {# Vertical divider (desktop only) #}
+      {% if away_rows and home_rows %}
+      <div class="col-auto d-none d-lg-block" style="width:1px;background:rgba(105,190,40,.1);"></div>
+      {% endif %}
+
+      {# Home team #}
+      {% if home_rows %}
+      <div class="col-12 col-lg-6 bs-team-col bs-home-col">
+        <div class="bs-team-hdr">
+          {% if ht and ht.logo_url %}<img src="{{ ht.logo_url }}" class="bs-team-logo">{% endif %}
+          <span class="bs-team-abbr" style="color:{{ hc }};">{{ ht.abbreviation if ht else 'Home' }}</span>
+          <span class="bs-team-label">HOME</span>
+        </div>
+        <div class="table-responsive">
+          <table class="bs-table">
+            <thead>
+              <tr>
+                <th class="bs-th-player">PLAYER</th>
+                {% for col in eff_cols %}
+                <th class="bs-th-stat">{{ STAT_LABELS.get(col, col) }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in home_rows %}
+              <tr class="bs-row">
+                <td class="bs-td-player">
+                  <div class="bs-player-wrap">
+                    {% if row.player.image_url %}
+                    <img src="{{ row.player.image_url }}" class="bs-player-img">
+                    {% endif %}
+                    <div>
+                      <a href="{{ url_for('stats.player_detail', player_id=row.player.id) }}"
+                         class="bs-player-name">{{ row.player.name }}</a>
+                      {% if row.player.position %}<span class="bs-player-pos">{{ row.player.position }}</span>{% endif %}
+                    </div>
+                  </div>
+                </td>
+                {% for col in eff_cols %}
+                {% set v = row.vals.get(col) %}
+                <td class="bs-td-stat {% if col in ['TD'] and v and v > 0 %}bs-td-td{% elif col in ['INT','FL','LST'] and v and v > 0 %}bs-td-neg{% elif col in ['YDS','REC','CMP'] %}bs-td-key{% endif %}">
+                  {% if v is not none %}
+                    {% if v % 1 == 0 %}{{ v | int }}{% else %}{{ v | round(1) }}{% endif %}
+                  {% else %}—{% endif %}
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% endif %}
+  {% endfor %}
+
+  {# ── Team comparison ── #}
+  <div class="tab-pane" id="team-stats" role="tabpanel">
+    {% if has_team %}
+    {% for cat, rows in team_comparison | groupby('category') %}
+    <div class="mb-4">
+      <div class="section-header">
+        <span class="sh-label">{{ CAT_LABELS.get(cat, cat | title) }}</span>
+        <div class="sh-line"></div>
+      </div>
+      {% for row in rows %}
+      {% set hv = row.home_value | float if row.home_value is not none else none %}
+      {% set av = row.away_value | float if row.away_value is not none else none %}
+      <div class="d-flex align-items-center gap-3 mb-2">
+        {# Away value #}
+        <div class="text-end flex-shrink-0" style="width:70px;">
+          <span style="font-size:.88rem;font-weight:700;color:#e2e8f0;">
+            {% if av is not none %}{{ av | int if av % 1 == 0 else av | round(1) }}{% else %}—{% endif %}
+          </span>
+        </div>
+        {# Stat bar #}
+        <div style="flex:1;position:relative;height:20px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden;">
+          {% if av is not none and hv is not none and (av + hv) > 0 %}
+          {% set away_pct = (av / (av + hv) * 100) | round(1) %}
+          <div style="position:absolute;right:50%;top:0;height:100%;
+                      width:{{ [away_pct, 50] | min }}%;
+                      background:{{ ac }};opacity:.7;border-radius:4px 0 0 4px;
+                      transform-origin:right;"></div>
+          <div style="position:absolute;left:50%;top:0;height:100%;
+                      width:{{ [100 - away_pct, 50] | min }}%;
+                      background:{{ hc }};opacity:.7;border-radius:0 4px 4px 0;"></div>
+          {% endif %}
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                      font-size:.6rem;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;
+                      letter-spacing:.06em;">
+            {{ STAT_LABELS.get(row.stat_type, row.stat_type) }}
+          </div>
+        </div>
+        {# Home value #}
+        <div style="width:70px;">
+          <span style="font-size:.88rem;font-weight:700;color:#e2e8f0;">
+            {% if hv is not none %}{{ hv | int if hv % 1 == 0 else hv | round(1) }}{% else %}—{% endif %}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {# Legend #}
+    <div class="d-flex align-items-center gap-4 mt-3" style="font-size:.68rem;color:rgba(255,255,255,.35);">
+      <div class="d-flex align-items-center gap-2">
+        <div style="width:12px;height:12px;border-radius:2px;background:{{ ac }};opacity:.7;"></div>
+        {{ at.abbreviation if at else 'Away' }}
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <div style="width:12px;height:12px;border-radius:2px;background:{{ hc }};opacity:.7;"></div>
+        {{ ht.abbreviation if ht else 'Home' }}
+      </div>
+    </div>
+    {% else %}
+    <p class="text-center py-4" style="color:rgba(255,255,255,.25);">No team stats available for this game.</p>
+    {% endif %}
+  </div>
+
+  {# ── Injury report tab ── #}
+  <div class="tab-pane {% if not has_away and not has_home and not has_team %}show active{% endif %}" id="injury-report" role="tabpanel">
+    {% if has_injuries %}
+    <div class="row g-3">
+      {# Away injuries #}
+      <div class="col-md-6">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          {% if at and at.logo_url %}<img src="{{ at.logo_url }}" style="height:20px;object-fit:contain;">{% endif %}
+          <span style="font-weight:700;font-size:.88rem;">{{ at.abbreviation if at else 'Away' }}</span>
+          <span style="font-size:.72rem;color:var(--sea-grey);">({{ away_injuries | length }} players)</span>
+        </div>
+        {% if away_injuries %}
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+            <tbody>
+              {% for inj in away_injuries %}
+              <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
+                <td style="padding:7px 8px 7px 0;min-width:120px;">
+                  <a href="{{ url_for('stats.player_detail', player_id=inj.player_id) }}"
+                     style="color:#e2e8f0;text-decoration:none;font-weight:600;">
+                    {{ inj.player.name if inj.player else '—' }}
+                  </a>
+                  {% if inj.player and inj.player.position %}
+                  <span style="font-size:.65rem;color:var(--sea-grey);margin-left:4px;">{{ inj.player.position }}</span>
+                  {% endif %}
+                </td>
+                <td style="padding:7px 8px;">
+                  {% if inj.injury_type %}
+                  <span style="font-size:.72rem;color:rgba(255,255,255,.5);">{{ inj.injury_type }}</span>
+                  {% endif %}
+                </td>
+                <td style="padding:7px 0;text-align:right;">
+                  {% set sc = inj.status | lower if inj.status else '' %}
+                  <span style="font-size:.68rem;font-weight:700;letter-spacing:.06em;padding:.15rem .4rem;border-radius:4px;
+                    {% if 'out' in sc or 'ir' in sc %}background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);
+                    {% elif 'doubtful' in sc %}background:rgba(251,146,60,.12);color:#fb923c;border:1px solid rgba(251,146,60,.25);
+                    {% elif 'questionable' in sc %}background:rgba(250,204,21,.1);color:#facc15;border:1px solid rgba(250,204,21,.2);
+                    {% else %}background:rgba(255,255,255,.06);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);{% endif %}">
+                    {{ inj.status or '?' }}
+                  </span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p style="color:rgba(255,255,255,.25);font-size:.82rem;">No injuries reported.</p>
+        {% endif %}
+      </div>
+
+      {# Home injuries #}
+      <div class="col-md-6">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          {% if ht and ht.logo_url %}<img src="{{ ht.logo_url }}" style="height:20px;object-fit:contain;">{% endif %}
+          <span style="font-weight:700;font-size:.88rem;">{{ ht.abbreviation if ht else 'Home' }}</span>
+          <span style="font-size:.72rem;color:var(--sea-grey);">({{ home_injuries | length }} players)</span>
+        </div>
+        {% if home_injuries %}
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <tbody>
+            {% for inj in home_injuries %}
+            <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
+              <td style="padding:7px 8px 7px 0;min-width:120px;">
+                <a href="{{ url_for('stats.player_detail', player_id=inj.player_id) }}"
+                   style="color:#e2e8f0;text-decoration:none;font-weight:600;">
+                  {{ inj.player.name if inj.player else '—' }}
+                </a>
+                {% if inj.player and inj.player.position %}
+                <span style="font-size:.65rem;color:var(--sea-grey);margin-left:4px;">{{ inj.player.position }}</span>
+                {% endif %}
+              </td>
+              <td style="padding:7px 8px;">
+                {% if inj.injury_type %}
+                <span style="font-size:.72rem;color:rgba(255,255,255,.5);">{{ inj.injury_type }}</span>
+                {% endif %}
+              </td>
+              <td style="padding:7px 0;text-align:right;">
+                {% set sc = inj.status | lower if inj.status else '' %}
+                <span style="font-size:.68rem;font-weight:700;letter-spacing:.06em;padding:.15rem .4rem;border-radius:4px;
+                  {% if 'out' in sc or 'ir' in sc %}background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);
+                  {% elif 'doubtful' in sc %}background:rgba(251,146,60,.12);color:#fb923c;border:1px solid rgba(251,146,60,.25);
+                  {% elif 'questionable' in sc %}background:rgba(250,204,21,.1);color:#facc15;border:1px solid rgba(250,204,21,.2);
+                  {% else %}background:rgba(255,255,255,.06);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1);{% endif %}">
+                  {{ inj.status or '?' }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p style="color:rgba(255,255,255,.25);font-size:.82rem;">No injuries reported.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if game.week and game.season_year %}
+    <div class="mt-3" style="font-size:.68rem;color:rgba(255,255,255,.2);">
+      <i class="bi bi-info-circle me-1"></i>
+      Injury data for Week {{ game.week }}, {{ game.season_year }}.
+      Sync injuries via Admin → Sync to update.
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-4" style="color:rgba(255,255,255,.25);">
+      <i class="bi bi-bandaid d-block mb-2" style="font-size:2rem;opacity:.4;"></i>
+      No injury data available for this week. Sync injuries via Admin to populate.
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% else %}
+{# ── No stats yet — show fetch button ── #}
+<div class="rounded-3 text-center py-5"
+     style="background:#111820;border:1px solid rgba(255,255,255,.09);">
+  <i class="bi bi-bar-chart-line d-block mb-3" style="font-size:2.8rem;color:rgba(255,255,255,.2);"></i>
+  <div class="fw-bold mb-1" style="color:rgba(255,255,255,.7);font-size:.95rem;">
+    No stats loaded for this game yet
+  </div>
+  <div class="mb-4" style="font-size:.78rem;color:rgba(255,255,255,.3);">
+    Pull player stats directly from ESPN's free API (no API key required)
+  </div>
+  {% if game.api_id %}
+  <form method="POST" action="{{ url_for('schedules.fetch_game_stats', game_id=game.id) }}">
+    <button type="submit" class="btn btn-warning fw-bold px-4">
+      <i class="bi bi-cloud-download-fill me-2"></i>Fetch Game Stats
+    </button>
+  </form>
+  {% else %}
+  <div style="font-size:.78rem;color:rgba(255,255,255,.25);">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    This game has no ESPN event ID — sync the games schedule first.
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* ── Box Score Tables ── */
+.bs-team-col {
+  padding: 0;
+}
+.bs-team-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 8px;
+  border-bottom: 2px solid rgba(255,255,255,.06);
+  background: rgba(0,0,0,.2);
+}
+.bs-team-logo {
+  height: 26px;
+  width: 26px;
+  object-fit: contain;
+}
+.bs-team-abbr {
+  font-family: 'Bebas Neue', 'Barlow Condensed', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.bs-team-label {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.25);
+  margin-left: 2px;
+}
+
+.bs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .78rem;
+}
+.bs-table thead tr {
+  border-bottom: 1px solid rgba(105,190,40,.15);
+}
+.bs-th-player {
+  text-align: left;
+  padding: 7px 12px 7px 14px;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: rgba(255,255,255,.3);
+  text-transform: uppercase;
+  min-width: 140px;
+}
+.bs-th-stat {
+  text-align: right;
+  padding: 7px 10px;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: rgba(255,255,255,.3);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.bs-row {
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  transition: background .1s;
+}
+.bs-row:last-child { border-bottom: none; }
+.bs-row:hover { background: rgba(255,255,255,.04); }
+
+.bs-td-player {
+  padding: 6px 10px 6px 14px;
+}
+.bs-player-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bs-player-img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: top center;
+  background: rgba(255,255,255,.06);
+  flex-shrink: 0;
+}
+.bs-player-name {
+  color: #e2e8f0;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: .82rem;
+  display: block;
+  white-space: nowrap;
+}
+.bs-player-name:hover { color: #69BE28; }
+.bs-player-pos {
+  font-size: .62rem;
+  color: rgba(255,255,255,.3);
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.bs-td-stat {
+  text-align: right;
+  padding: 6px 10px;
+  font-size: .82rem;
+  color: rgba(255,255,255,.65);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.bs-td-key  { color: #e2e8f0; font-weight: 700; }
+.bs-td-td   { color: #4ade80; font-weight: 800; }
+.bs-td-neg  { color: #f87171; }
+
+.bs-away-col { border-right: 1px solid rgba(255,255,255,.06); }
+@media (max-width: 991.98px) { .bs-away-col { border-right: none; border-bottom: 1px solid rgba(255,255,255,.1); } }
+
+.gstat-row { border-bottom: 1px solid rgba(255,255,255,.05); }
+.gstat-row:last-child { border-bottom: none; }
+.gstat-row:hover { background: rgba(255,255,255,.03); }
+
+.sched-status {
+  font-size: .58rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .08em;
+  padding: 2px 8px; border-radius: 50px;
+}
+.status-final { background: rgba(74,222,128,.15); color: #4ade80; }
+.status-live  { background: rgba(251,191,36,.18); color: #fbbf24; }
+.status-sched { background: rgba(255,255,255,.07); color: rgba(255,255,255,.45); }
+
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #fbbf24;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .5; transform: scale(.7); }
+}
+
+.tab-pill { display:inline-block;padding:.45rem 1.1rem;border-radius:50px;font-size:.82rem;
+            font-weight:600;text-decoration:none;cursor:pointer;
+            background:rgba(255,255,255,.06);color:rgba(255,255,255,.55);
+            border:1px solid rgba(255,255,255,.08);transition:background .12s,color .12s; }
+.tab-pill:hover:not(.active) { background:rgba(255,255,255,.12);color:#fff; }
+.tab-pill.active { background:#ffc107;color:#000;border-color:#ffc107; }
+</style>
+<script>
+document.querySelectorAll('.tab-pill').forEach(el => {
+  el.addEventListener('shown.bs.tab', () => {
+    document.querySelectorAll('.tab-pill').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+  });
+});
+</script>
+{% endblock %}

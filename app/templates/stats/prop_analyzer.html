@@ -1,0 +1,454 @@
+{% extends "base.html" %}
+{% block title %}Prop Analyzer — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<style>
+.prop-hero {
+  background: linear-gradient(135deg, rgba(0,34,68,.9) 0%, rgba(0,17,34,.98) 100%);
+  border: 1px solid rgba(105,190,40,.2);
+  border-radius: 14px;
+  padding: 1.8rem 2rem;
+  margin-bottom: 1.5rem;
+}
+.prop-form-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--sea-grey);
+  margin-bottom: .3rem;
+}
+.prop-form-control {
+  background: rgba(0,34,68,.5) !important;
+  border: 1px solid rgba(105,190,40,.2) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  font-size: .88rem;
+}
+.prop-form-control:focus {
+  border-color: var(--sea-green) !important;
+  box-shadow: 0 0 0 3px rgba(105,190,40,.1) !important;
+}
+.prop-form-control option { background: #001a30; color: #fff; }
+
+/* Summary badges */
+.prop-stat-box {
+  background: rgba(0,34,68,.5);
+  border: 1px solid rgba(105,190,40,.12);
+  border-radius: 10px;
+  padding: 1rem .8rem;
+  text-align: center;
+}
+.prop-stat-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: #fff;
+}
+.prop-stat-val.over { color: var(--sea-green); }
+.prop-stat-val.under { color: #f87171; }
+.prop-stat-val.neutral { color: var(--sea-grey); }
+.prop-stat-lbl {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--sea-grey);
+  margin-top: .25rem;
+}
+
+/* Hit rate ring */
+.hit-rate-wrap {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto .4rem;
+}
+.hit-rate-svg { transform: rotate(-90deg); }
+.hit-rate-bg { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 7; }
+.hit-rate-arc { fill: none; stroke-width: 7; stroke-linecap: round; transition: stroke-dasharray .6s ease; }
+.hit-rate-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  color: #fff;
+  line-height: 1;
+}
+.hit-rate-pct-lbl {
+  font-size: .5rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--sea-grey);
+}
+
+/* Game log table */
+.prop-game-row td { font-size: .83rem; }
+.prop-badge-over {
+  display: inline-block; padding: .15rem .45rem; border-radius: 4px;
+  background: rgba(105,190,40,.15); color: var(--sea-green);
+  border: 1px solid rgba(105,190,40,.3); font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+}
+.prop-badge-under {
+  display: inline-block; padding: .15rem .45rem; border-radius: 4px;
+  background: rgba(248,113,113,.12); color: #f87171;
+  border: 1px solid rgba(248,113,113,.25); font-size: .7rem; font-weight: 700; letter-spacing: .06em;
+}
+</style>
+
+{# ── Page header ── #}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="{{ url_for('stats.index') }}" class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1">
+    <i class="bi bi-arrow-left"></i> Stats
+  </a>
+</div>
+
+{# ── Search form ── #}
+<div class="prop-hero">
+  <div class="d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-graph-up-arrow" style="color:var(--sea-green);font-size:1.2rem;"></i>
+    <div>
+      <div class="prop-stat-lbl" style="font-size:.65rem;">TOOL</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1;color:#fff;">PROP ANALYZER</div>
+    </div>
+  </div>
+
+  <form method="GET" action="{{ url_for('stats.prop_analyzer') }}" class="row g-2 align-items-end">
+    <div class="col-12 col-md-4">
+      <div class="prop-form-label">Player</div>
+      <div class="position-relative">
+        <input type="text" id="playerSearch" placeholder="Search player…"
+               class="form-control prop-form-control"
+               value="{{ player.name if player else '' }}"
+               autocomplete="off">
+        <input type="hidden" name="player_id" id="playerIdInput" value="{{ player.id if player else '' }}">
+        <div id="playerSuggestions"
+             class="position-absolute w-100 mt-1 rounded-2 overflow-hidden"
+             style="z-index:99;background:#001530;border:1px solid rgba(105,190,40,.2);display:none;max-height:200px;overflow-y:auto;">
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <div class="prop-form-label">Category</div>
+      <select name="stat_cat" id="statCatSelect" class="form-select prop-form-control">
+        <option value="">— pick —</option>
+        {% for cat in [('passing','Passing'),('rushing','Rushing'),('receiving','Receiving')] %}
+        <option value="{{ cat[0] }}" {{ 'selected' if stat_cat == cat[0] }}>{{ cat[1] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <div class="prop-form-label">Stat</div>
+      <select name="stat_type" id="statTypeSelect" class="form-select prop-form-control">
+        <option value="">— pick —</option>
+      </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <div class="prop-form-label">Line</div>
+      <input type="number" name="line" step="0.5" min="0"
+             class="form-control prop-form-control"
+             placeholder="e.g. 74.5"
+             value="{{ line if line is not none else '' }}">
+    </div>
+
+    <div class="col-6 col-md-1">
+      <div class="prop-form-label">Season</div>
+      <select name="season" class="form-select prop-form-control">
+        <option value="2025" {{ 'selected' if season == 2025 }}>2025</option>
+        <option value="2024" {{ 'selected' if season == 2024 }}>2024</option>
+      </select>
+    </div>
+
+    <div class="col-12 col-md-1">
+      <button type="submit" class="btn w-100"
+              style="background:var(--sea-green);color:#001a0a;font-family:'Bebas Neue';font-size:1rem;letter-spacing:.06em;border:none;border-radius:8px;padding:.5rem;">
+        ANALYZE
+      </button>
+    </div>
+  </form>
+</div>
+
+{# ── Results ── #}
+{% if analysis %}
+
+{% set tc = player.team.primary_color if player and player.team and player.team.primary_color else '#69BE28' %}
+
+{# Player banner #}
+<div class="card mb-3" style="border-color:rgba(105,190,40,.15);">
+  <div class="card-body py-3">
+    <div class="d-flex align-items-center gap-3">
+      {% if player.image_url %}
+      <img src="{{ player.image_url }}" style="width:52px;height:52px;object-fit:cover;object-position:top;border-radius:8px;border:2px solid {{ tc }};">
+      {% else %}
+      <div style="width:52px;height:52px;border-radius:8px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;">
+        <i class="bi bi-person-fill" style="font-size:1.8rem;color:rgba(255,255,255,.2);"></i>
+      </div>
+      {% endif %}
+      <div>
+        <div style="font-size:.65rem;font-weight:700;letter-spacing:.14em;color:{{ tc }};text-transform:uppercase;">
+          {{ player.team.abbreviation if player.team else 'FA' }}
+          {% if player.jersey_number %}· #{{ player.jersey_number }}{% endif %}
+          · {{ player.position or '' }}
+        </div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1.1;color:#fff;">{{ player.name }}</div>
+      </div>
+      <div class="ms-auto text-end">
+        <div style="font-size:.65rem;font-weight:700;letter-spacing:.14em;color:var(--sea-grey);text-transform:uppercase;">Prop Line</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--sea-green);line-height:1;">{{ line }}</div>
+        <div style="font-size:.65rem;color:var(--sea-grey);">{{ stat_cat | title }} · {{ STAT_LABELS.get(stat_type, stat_type) }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Summary row #}
+<div class="row g-3 mb-4">
+  {# Hit rate ring #}
+  <div class="col-6 col-md-2">
+    <div class="prop-stat-box h-100 d-flex flex-column align-items-center justify-content-center">
+      <div class="hit-rate-wrap">
+        <svg class="hit-rate-svg" width="80" height="80" viewBox="0 0 80 80">
+          <circle class="hit-rate-bg" cx="40" cy="40" r="32"/>
+          <circle class="hit-rate-arc"
+            id="hitArc"
+            cx="40" cy="40" r="32"
+            stroke="{{ tc }}"
+            stroke-dasharray="0 201"
+            style="stroke-dasharray:{{ (analysis.hit_rate / 100 * 201) | round(1) }} 201;"/>
+        </svg>
+        <div class="hit-rate-text">
+          <div>{{ analysis.hit_rate }}</div>
+          <div class="hit-rate-pct-lbl">%</div>
+        </div>
+      </div>
+      <div class="prop-stat-lbl">HIT RATE</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-2">
+    <div class="prop-stat-box h-100">
+      <div class="prop-stat-val over">{{ analysis.over }}</div>
+      <div class="prop-stat-lbl">OVER</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="prop-stat-box h-100">
+      <div class="prop-stat-val under">{{ analysis.under }}</div>
+      <div class="prop-stat-lbl">UNDER</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="prop-stat-box h-100">
+      <div class="prop-stat-val neutral">{{ analysis.avg }}</div>
+      <div class="prop-stat-lbl">AVG</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="prop-stat-box h-100">
+      <div class="prop-stat-val {{ 'over' if analysis.recent5_over >= 3 else ('under' if analysis.recent5_over <= 1 else 'neutral') }}">
+        {{ analysis.recent5_over }}/{{ analysis.recent5 | length }}
+      </div>
+      <div class="prop-stat-lbl">LAST 5</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="prop-stat-box h-100">
+      <div class="prop-stat-val neutral">{{ analysis.total }}</div>
+      <div class="prop-stat-lbl">GAMES</div>
+    </div>
+  </div>
+</div>
+
+{# Chart #}
+<div class="card mb-4">
+  <div class="card-header">
+    <i class="bi bi-bar-chart-fill me-1" style="color:var(--sea-green);"></i>
+    {{ player.name }} — {{ STAT_LABELS.get(stat_type, stat_type) }} vs. {{ line }} line
+  </div>
+  <div class="card-body">
+    <canvas id="propChart" height="90"></canvas>
+  </div>
+</div>
+
+{# Game log table #}
+{% if analysis.games %}
+<div class="card">
+  <div class="card-header"><i class="bi bi-table me-1" style="color:var(--sea-green);"></i>GAME LOG</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr style="border-bottom:1px solid rgba(105,190,40,.15);">
+            <th class="ps-3 py-2" style="color:var(--sea-grey);font-size:.7rem;letter-spacing:.07em;">WK</th>
+            <th class="py-2" style="color:var(--sea-grey);font-size:.7rem;letter-spacing:.07em;">DATE</th>
+            <th class="py-2 text-end" style="color:var(--sea-grey);font-size:.7rem;letter-spacing:.07em;">{{ STAT_LABELS.get(stat_type, stat_type) | upper }}</th>
+            <th class="pe-3 py-2 text-center" style="color:var(--sea-grey);font-size:.7rem;letter-spacing:.07em;">RESULT</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in analysis.games | reverse %}
+          <tr class="prop-game-row" style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td class="ps-3 py-2" style="font-weight:700;color:var(--sea-green);">{{ g.week or '—' }}</td>
+            <td class="py-2" style="color:rgba(255,255,255,.55);">
+              {{ g.date.strftime('%b %-d') if g.date else '—' }}
+            </td>
+            <td class="py-2 text-end fw-bold" style="color:{{ '#69BE28' if g.over else '#f87171' }};">
+              {% if g.value % 1 == 0 %}{{ g.value | int }}{% else %}{{ g.value | round(1) }}{% endif %}
+            </td>
+            <td class="pe-3 py-2 text-center">
+              {% if g.over %}
+              <span class="prop-badge-over">OVER</span>
+              {% else %}
+              <span class="prop-badge-under">UNDER</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% elif player and (not stat_cat or not stat_type or line is none) %}
+<div class="text-center py-5" style="color:var(--sea-grey);">
+  <i class="bi bi-funnel" style="font-size:2.5rem;display:block;margin-bottom:.8rem;opacity:.4;"></i>
+  Select a stat category, type, and line to analyze.
+</div>
+{% else %}
+<div class="text-center py-5" style="color:var(--sea-grey);">
+  <i class="bi bi-search" style="font-size:2.5rem;display:block;margin-bottom:.8rem;opacity:.4;"></i>
+  Search for a player and set a prop line to get started.
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{# Stat type options by category #}
+<script>
+const STAT_OPTIONS = {
+  passing:   [['YDS','Pass Yards'],['TD','Pass TDs'],['INT','Interceptions'],['CMP','Completions'],['ATT','Attempts'],['RTG','Passer Rating']],
+  rushing:   [['YDS','Rush Yards'],['TD','Rush TDs'],['CAR','Carries'],['LNG','Longest Rush'],['AVG','Yards/Carry']],
+  receiving: [['YDS','Rec Yards'],['TD','Rec TDs'],['REC','Receptions'],['TGTS','Targets'],['LNG','Longest Rec'],['YAC','YAC']],
+};
+
+function populateStatType(cat, selected) {
+  const sel = document.getElementById('statTypeSelect');
+  sel.innerHTML = '<option value="">— pick —</option>';
+  (STAT_OPTIONS[cat] || []).forEach(([val, lbl]) => {
+    const opt = document.createElement('option');
+    opt.value = val; opt.textContent = lbl;
+    if (val === selected) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById('statCatSelect').addEventListener('change', function() {
+  populateStatType(this.value, '');
+});
+populateStatType('{{ stat_cat }}', '{{ stat_type }}');
+
+// Player search autocomplete
+let debounceTimer;
+const searchInput = document.getElementById('playerSearch');
+const suggestions = document.getElementById('playerSuggestions');
+const playerIdInput = document.getElementById('playerIdInput');
+
+searchInput.addEventListener('input', function() {
+  clearTimeout(debounceTimer);
+  const q = this.value.trim();
+  if (q.length < 2) { suggestions.style.display = 'none'; return; }
+  debounceTimer = setTimeout(() => {
+    fetch(`/api/players/search?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        suggestions.innerHTML = data.map(p =>
+          `<div class="px-3 py-2" style="cursor:pointer;font-size:.85rem;border-bottom:1px solid rgba(255,255,255,.05);"
+                onmousedown="selectPlayer(${p.id},'${p.name.replace(/'/g,"\\'")}')">
+            <span style="color:#fff;">${p.name}</span>
+            <span style="color:var(--sea-grey);font-size:.75rem;margin-left:.4rem;">${p.position || ''} · ${p.team || ''}</span>
+          </div>`
+        ).join('');
+        suggestions.style.display = data.length ? '' : 'none';
+      });
+  }, 200);
+});
+
+searchInput.addEventListener('blur', () => setTimeout(() => suggestions.style.display = 'none', 150));
+
+function selectPlayer(id, name) {
+  playerIdInput.value = id;
+  searchInput.value = name;
+  suggestions.style.display = 'none';
+}
+
+{% if analysis %}
+// Prop chart
+(function() {
+  const games = {{ analysis.games | tojson }};
+  const line  = {{ analysis.line }};
+  const tc    = {{ (player.team.primary_color if player and player.team and player.team.primary_color else '#69BE28') | tojson }};
+
+  const labels = games.map(g => g.week ? `Wk ${g.week}` : (g.date ? g.date.substr(0,10) : '?'));
+  const values = games.map(g => g.value);
+
+  new Chart(document.getElementById('propChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '{{ STAT_LABELS.get(stat_type, stat_type) }}',
+          data: values,
+          backgroundColor: values.map(v => v > line ? tc + 'cc' : 'rgba(248,113,113,.65)'),
+          borderColor:     values.map(v => v > line ? tc      : 'rgba(248,113,113,1)'),
+          borderWidth: 1,
+          borderRadius: 4,
+          order: 2,
+        },
+        {
+          label: 'Line ({{ line }})',
+          data: Array(labels.length).fill(line),
+          type: 'line',
+          borderColor: 'rgba(255,255,255,.4)',
+          borderWidth: 1.5,
+          borderDash: [5, 4],
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+          order: 1,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#a5acaf', font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            afterLabel: ctx => ctx.datasetIndex === 0
+              ? (ctx.raw > line ? ' ✓ OVER' : ' ✗ UNDER')
+              : ''
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#a5acaf', font:{size:11} }, border:{color:'rgba(255,255,255,.08)'} },
+        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#a5acaf', font:{size:11} }, border:{color:'rgba(255,255,255,.08)'} },
+      }
+    }
+  });
+})();
+{% endif %}
+</script>
+{% endblock %}

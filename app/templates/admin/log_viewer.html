@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ log_file }} — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('admin.logs') }}" class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1">
+      <i class="bi bi-arrow-left"></i> Logs
+    </a>
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-file-text" style="color:#fb923c;font-size:1rem;"></i>
+      <span class="fw-black" style="font-size:1.1rem;letter-spacing:-.01em;">{{ log_file }}</span>
+    </div>
+  </div>
+  <span style="font-size:.75rem;color:rgba(255,255,255,.3);">
+    {{ total_lines }} total lines &bull; showing last {{ lines | length }}
+  </span>
+</div>
+
+<div class="rounded-3 overflow-hidden" style="background:#0d0f14;border:1px solid rgba(255,255,255,.08);">
+  <div class="px-4 py-2 d-flex align-items-center gap-2" style="border-bottom:1px solid rgba(255,255,255,.06);background:#111820;">
+    <span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;"></span>
+    <span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
+    <span style="width:10px;height:10px;border-radius:50%;background:#22c55e;display:inline-block;"></span>
+    <span class="ms-2" style="font-size:.72rem;color:rgba(255,255,255,.3);font-family:monospace;">{{ log_file }}</span>
+  </div>
+  <pre id="logContent"
+       style="margin:0;padding:1.25rem;font-family:'Courier New',monospace;font-size:.76rem;
+              color:#4ade80;line-height:1.6;max-height:72vh;overflow-y:auto;white-space:pre-wrap;word-break:break-all;">{% for line in lines %}{{ line }}{% endfor %}</pre>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const el = document.getElementById('logContent');
+el.scrollTop = el.scrollHeight;
+</script>
+{% endblock %}

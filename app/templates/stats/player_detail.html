@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% block title %}{{ player.name }}{% endblock %}
+{% block content %}
+
+{% set team_color = player.team.primary_color if player.team and player.team.primary_color else '#6c757d' %}
+
+{# Back link #}
+<a href="{{ url_for('stats.players') }}"
+   class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1 mb-3">
+  <i class="bi bi-arrow-left"></i> Players
+</a>
+
+{# ══════ HERO ══════ #}
+<div class="rounded-3 mb-4 overflow-hidden"
+     style="background:#111820;border:1px solid rgba(255,255,255,.09);">
+
+  {# Team-color accent stripe #}
+  <div style="height:4px;background:{{ team_color }};"></div>
+
+  <div class="d-flex flex-column flex-sm-row">
+
+    {# Photo — flush to card edge, no border, position badge overlay #}
+    <div class="flex-shrink-0 position-relative" style="width:185px;min-height:220px;">
+      {% if player.image_url %}
+      <img src="{{ player.image_url }}" alt="{{ player.name }}"
+           style="width:185px;height:220px;object-fit:cover;object-position:top center;display:block;">
+      {% else %}
+      <div class="d-flex align-items-center justify-content-center"
+           style="width:185px;height:220px;background:rgba(255,255,255,.04);">
+        <i class="bi bi-person-fill" style="font-size:5rem;color:rgba(255,255,255,.15);"></i>
+      </div>
+      {% endif %}
+      {% if player.position %}
+      <div class="position-absolute bottom-0 start-0 px-2 py-1 fw-bold"
+           style="background:{{ team_color }};font-size:.7rem;letter-spacing:.06em;
+                  color:#000;text-transform:uppercase;">
+        {{ player.position }}
+      </div>
+      {% endif %}
+    </div>
+
+    {# Info block #}
+    <div class="flex-grow-1 px-4 py-4 position-relative d-flex flex-column justify-content-center"
+         style="min-height:220px;">
+
+      {# Team logo watermark #}
+      {% if player.team and player.team.logo_url %}
+      <img src="{{ player.team.logo_url }}"
+           class="position-absolute"
+           style="right:1.5rem;top:1rem;height:56px;opacity:.2;pointer-events:none;user-select:none;">
+      {% endif %}
+
+      {# Team / jersey label #}
+      <div class="mb-1 fw-semibold text-uppercase"
+           style="font-size:.68rem;letter-spacing:.15em;color:{{ team_color }};">
+        {{ player.team.abbreviation if player.team else 'Free Agent' }}
+        {% if player.jersey_number %}&thinsp;·&thinsp;#{{ player.jersey_number }}{% endif %}
+      </div>
+
+      {# Name #}
+      <h1 class="fw-black mb-2"
+          style="font-size:2.4rem;line-height:1.05;letter-spacing:-.02em;">
+        {{ player.name }}
+      </h1>
+
+      {# Status + team badges #}
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        {% if player.team %}
+        <span class="badge bg-secondary bg-opacity-50 px-3 py-2" style="font-size:.78rem;">
+          {{ player.team.full_name or player.team.name }}
+        </span>
+        {% endif %}
+        {%- set sc = 'success' if player.status == 'Active'
+            else 'danger' if player.status in ['IR','Out','Injured','PUP','NFI']
+            else 'warning' if player.status in ['Questionable','Doubtful']
+            else 'secondary' -%}
+        <span class="badge bg-{{ sc }} bg-opacity-75 px-3 py-2" style="font-size:.78rem;">
+          {{ player.status or 'Unknown' }}
+        </span>
+      </div>
+
+      {# Bio row #}
+      <div class="d-flex flex-wrap gap-3" style="font-size:.8rem;color:rgba(255,255,255,.45);">
+        {% if player.height %}<span>{{ player.height }}</span>{% endif %}
+        {% if player.weight %}<span>{{ player.weight }} lbs</span>{% endif %}
+        {% if player.age %}<span>Age {{ player.age }}</span>{% endif %}
+        {% if player.experience is not none %}<span>{{ player.experience }} yr NFL</span>{% endif %}
+        {% if player.college %}
+        <span><i class="bi bi-mortarboard me-1" style="opacity:.5;"></i>{{ player.college }}</span>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# ══════ SEASON SELECTOR ══════ #}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <span class="text-uppercase fw-semibold"
+        style="font-size:.68rem;letter-spacing:.12em;color:rgba(255,255,255,.35);">Season</span>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('stats.player_detail', player_id=player.id, season=2025) }}"
+       class="px-3 py-1 rounded-pill text-decoration-none fw-semibold"
+       style="font-size:.82rem;
+              {% if season_year == 2025 %}background:{{ team_color }};color:#000;{% else %}background:rgba(255,255,255,.07);color:rgba(255,255,255,.6);{% endif %}">
+      2025
+    </a>
+    <a href="{{ url_for('stats.player_detail', player_id=player.id, season=2024) }}"
+       class="px-3 py-1 rounded-pill text-decoration-none fw-semibold"
+       style="font-size:.82rem;
+              {% if season_year == 2024 %}background:{{ team_color }};color:#000;{% else %}background:rgba(255,255,255,.07);color:rgba(255,255,255,.6);{% endif %}">
+      2024
+    </a>
+  </div>
+</div>
+
+{# ══════ STATS ══════ #}
+{% if stats %}
+
+{# CAT_LABELS, STAT_LABELS, SPOTLIGHT, SPOTLIGHT_DEFAULT injected by context processor #}
+{% set spotlight_defs = SPOTLIGHT.get(player.position, SPOTLIGHT_DEFAULT) %}
+
+{# ── Key stats row ── #}
+<div class="dark-card rounded-3 mb-4">
+  <div class="row g-0">
+    {% for item in spotlight_defs %}
+    {% set cat       = item[0] %}
+    {% set stat_type = item[1] %}
+    {% set label     = item[2] %}
+    {% set found = stats
+        | selectattr('category',  'equalto', cat)
+        | selectattr('stat_type', 'equalto', stat_type)
+        | selectattr('game_id',   'equalto', none)
+        | list | first | default(none) %}
+    <div class="col-4 col-md-2 text-center py-4
+                {% if not loop.last %}border-end{% endif %}"
+         style="border-color:rgba(255,255,255,.07)!important;">
+      {% if found %}
+        {% if found.value % 1 == 0 %}
+        <div class="fw-black lh-1 mb-1" style="font-size:2rem;color:#fff;">{{ found.value | int }}</div>
+        {% else %}
+        <div class="fw-black lh-1 mb-1" style="font-size:2rem;color:#fff;">{{ found.value | round(1) }}</div>
+        {% endif %}
+      {% else %}
+        <div class="fw-black lh-1 mb-1" style="font-size:2rem;color:rgba(255,255,255,.18);">—</div>
+      {% endif %}
+      <div class="text-uppercase fw-semibold"
+           style="font-size:.6rem;letter-spacing:.1em;color:rgba(255,255,255,.38);">
+        {{ label }}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── Detailed stats by category ── #}
+{% for cat, cat_stats in stats | groupby('category') %}
+  {% set season = cat_stats | selectattr('game_id', 'equalto', none) | list %}
+  {% if season and cat != 'general' %}
+  <div class="mb-4">
+    <div class="section-header">
+      <span class="sh-label">{{ CAT_LABELS.get(cat, cat | title) }}</span>
+      <div class="sh-line"></div>
+    </div>
+    <div class="row g-2">
+      {% for s in season %}
+      {% if s.value % 1 == 0 %}{% set display = s.value | int %}{% else %}{% set display = s.value | round(1) %}{% endif %}
+      <div class="col-6 col-sm-4 col-md-3">
+        <div class="stat-pill">
+          <span class="s-label">{{ STAT_LABELS.get(s.stat_type, s.stat_type) }}</span>
+          <span class="s-value">{{ display }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+{% endfor %}
+
+{# ── Week-over-week chart ── #}
+<div class="mb-4">
+  <div class="section-header">
+    <span class="sh-label">WEEK-BY-WEEK</span>
+    <div class="sh-line"></div>
+  </div>
+  <div class="dark-card rounded-3 p-3">
+    <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+      <label class="text-uppercase fw-semibold"
+             style="font-size:.65rem;letter-spacing:.12em;color:rgba(255,255,255,.35);">Stat</label>
+      <select id="gamelogStatSelect"
+              class="form-select form-select-sm"
+              style="max-width:240px;background:rgba(0,34,68,.5);border-color:rgba(105,190,40,.2);color:#fff;font-size:.82rem;">
+        <option value="">Loading…</option>
+      </select>
+    </div>
+    <canvas id="gamelogChart" height="100"></canvas>
+    <p id="gamelogEmpty" class="text-center mb-0" style="color:rgba(255,255,255,.3);font-size:.82rem;display:none;">
+      No per-game data available for this season.
+    </p>
+  </div>
+</div>
+
+{# ── Per-game table ── #}
+{% if gamelog %}
+<div class="mb-4">
+  <div class="section-header">
+    <span class="sh-label">GAME LOG</span>
+    <div class="sh-line"></div>
+  </div>
+  <div class="dark-card rounded-3 p-0 overflow-hidden">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0" style="font-size:.82rem;">
+        <thead>
+          <tr style="border-bottom:1px solid rgba(105,190,40,.15);">
+            <th class="ps-3 py-2" style="color:var(--sea-grey);font-weight:700;letter-spacing:.06em;font-size:.7rem;">WK</th>
+            <th class="py-2" style="color:var(--sea-grey);font-weight:700;letter-spacing:.06em;font-size:.7rem;">STAT</th>
+            <th class="pe-3 py-2 text-end" style="color:var(--sea-grey);font-weight:700;letter-spacing:.06em;font-size:.7rem;">VAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set ns = namespace(prev_week=none) %}
+          {% for row in gamelog | sort(attribute='week') %}
+          {% if row.week != ns.prev_week %}
+            {% if ns.prev_week is not none %}
+            <tr style="height:4px;background:rgba(105,190,40,.04);"><td colspan="3"></td></tr>
+            {% endif %}
+            {% set ns.prev_week = row.week %}
+          {% endif %}
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td class="ps-3 py-1" style="color:var(--sea-green);font-weight:700;">{{ row.week }}</td>
+            <td class="py-1" style="color:rgba(255,255,255,.6);">{{ STAT_LABELS.get(row.stat, row.stat) }}</td>
+            <td class="pe-3 py-1 text-end fw-bold">
+              {% if row.value % 1 == 0 %}{{ row.value | int }}{% else %}{{ row.value | round(1) }}{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+{# ── No stats empty state ── #}
+<div class="dark-card rounded-3 text-center py-5">
+  <i class="bi bi-bar-chart d-block mb-3" style="font-size:3rem;color:rgba(255,255,255,.15);"></i>
+  <p class="mb-1" style="color:rgba(255,255,255,.5);">No stats recorded for {{ season_year }}.</p>
+  <small style="color:rgba(255,255,255,.3);">
+    {% if player.status in ['IR', 'Out', 'Injured', 'PUP', 'NFI'] %}
+      {{ player.name }} was on the injury list this season.
+    {% elif player.experience and player.experience >= 2 %}
+      {{ player.name }} may have been on the practice squad or had limited activity.
+      {% if season_year == 2025 %}
+        Try the <a href="{{ url_for('stats.player_detail', player_id=player.id, season=2024) }}"
+                   style="color:{{ team_color }};">2024 season</a>.
+      {% else %}
+        Try the <a href="{{ url_for('stats.player_detail', player_id=player.id, season=2025) }}"
+                   style="color:{{ team_color }};">2025 season</a>.
+      {% endif %}
+    {% else %}
+      This player may not have played, or their stats aren't tracked by position.
+    {% endif %}
+  </small>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const playerId = {{ player.id }};
+  const season   = {{ season_year }};
+  const teamColor = {{ (player.team.primary_color if player.team and player.team.primary_color else '#69BE28') | tojson }};
+
+  const STAT_LABELS = {
+    passingYards:'Pass Yds', passingTouchdowns:'Pass TD', interceptions:'INT',
+    completions:'Comp', attempts:'Att', rushingYards:'Rush Yds',
+    rushingTouchdowns:'Rush TD', carries:'Carries', rushingLong:'Rush Long',
+    receptions:'Rec', receivingYards:'Rec Yds', receivingTouchdowns:'Rec TD',
+    targets:'Targets', receivingLong:'Rec Long',
+    YDS:'Yards', TD:'TD', ATT:'Att', CMP:'Cmp', INT:'INT',
+    REC:'Rec', TAR:'Targets', CAR:'Carries', LNG:'Long', YPC:'YPC', YPR:'YPR', YPA:'YPA',
+  };
+
+  const POSITION_PRIORITY = {
+    QB: ['passingYards','YDS','passingTouchdowns','TD','interceptions','INT'],
+    RB: ['rushingYards','YDS','rushingTouchdowns','TD','carries','CAR','receptions','REC'],
+    WR: ['receivingYards','YDS','receptions','REC','receivingTouchdowns','TD','targets','TAR'],
+    TE: ['receivingYards','YDS','receptions','REC','receivingTouchdowns','TD'],
+  };
+
+  let chartInstance = null;
+
+  fetch(`/api/stats/player/${playerId}/gamelog?season=${season}`)
+    .then(r => r.json())
+    .then(data => {
+      const weeks = data.weeks || [];
+      const stats = data.stats || {};
+      if (!weeks.length) {
+        document.getElementById('gamelogEmpty').style.display = '';
+        return;
+      }
+
+      const options = [];
+      for (const [cat, statMap] of Object.entries(stats)) {
+        for (const [st, vals] of Object.entries(statMap)) {
+          options.push({ cat, stat: st, label: STAT_LABELS[st] || st, values: vals });
+        }
+      }
+
+      const pos = {{ (player.position or '') | tojson }};
+      const priority = POSITION_PRIORITY[pos] || [];
+      options.sort((a, b) => {
+        const ai = priority.indexOf(a.stat); const bi = priority.indexOf(b.stat);
+        if (ai === -1 && bi === -1) return a.label.localeCompare(b.label);
+        if (ai === -1) return 1; if (bi === -1) return -1;
+        return ai - bi;
+      });
+
+      const sel = document.getElementById('gamelogStatSelect');
+      sel.innerHTML = options.map((o, i) =>
+        `<option value="${i}">${o.label} (${o.cat})</option>`
+      ).join('');
+
+      function renderChart(idx) {
+        const opt = options[idx];
+        const vals = opt.values;
+        const ctx = document.getElementById('gamelogChart').getContext('2d');
+        if (chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: weeks.map(w => `Wk ${w}`),
+            datasets: [{
+              label: opt.label,
+              data: vals,
+              backgroundColor: vals.map(v => v === null ? 'rgba(255,255,255,.08)' : teamColor + 'cc'),
+              borderColor: vals.map(v => v === null ? 'rgba(255,255,255,.15)' : teamColor),
+              borderWidth: 1,
+              borderRadius: 3,
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: ctx => ctx.raw === null ? ' BYE / DNP' : ` ${opt.label}: ${ctx.raw}`
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: 'rgba(255,255,255,.05)' },
+                ticks: { color: '#a5acaf', font: { size: 11 } },
+                border: { color: 'rgba(255,255,255,.08)' },
+              },
+              y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(255,255,255,.05)' },
+                ticks: { color: '#a5acaf', font: { size: 11 } },
+                border: { color: 'rgba(255,255,255,.08)' },
+              }
+            }
+          }
+        });
+      }
+
+      renderChart(0);
+      sel.addEventListener('change', () => renderChart(parseInt(sel.value)));
+    })
+    .catch(() => {
+      const el = document.getElementById('gamelogEmpty');
+      if (el) el.style.display = '';
+    });
+})();
+</script>
+{% endblock %}

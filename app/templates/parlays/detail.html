@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% block title %}{{ parlay.name or 'Parlay #' + parlay.id|string }} — Beast Mode{% endblock %}
+{% block content %}
+
+{% set sv = parlay.status.value %}
+
+{# ── Back + actions ── #}
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <a href="{{ url_for('parlays.index') }}"
+     class="text-decoration-none d-flex align-items-center gap-1"
+     style="font-size:.82rem;color:rgba(255,255,255,.4);">
+    <i class="bi bi-arrow-left"></i> Parlays
+  </a>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('parlays.edit', parlay_id=parlay.id) }}"
+       class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-pencil me-1"></i>Edit
+    </a>
+    <form method="POST" action="{{ url_for('parlays.delete', parlay_id=parlay.id) }}"
+          onsubmit="return confirm('Delete this parlay?')">
+      <button type="submit" class="btn btn-sm btn-outline-danger">
+        <i class="bi bi-trash"></i>
+      </button>
+    </form>
+  </div>
+</div>
+
+{# ── Hero ── #}
+<div class="rounded-3 mb-4 p-4"
+     style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+    <div>
+      <div style="font-size:.62rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:.4rem;">
+        {{ parlay.bet_date.strftime('%A, %B %-d, %Y') if parlay.bet_date else 'No date' }}
+        {% if parlay.sportsbook %}&nbsp;·&nbsp; {{ parlay.sportsbook }}{% endif %}
+      </div>
+      <h3 class="fw-bold mb-2" style="font-size:1.7rem;letter-spacing:-.01em;">
+        {{ parlay.name or 'Parlay #' + parlay.id|string }}
+      </h3>
+      <span class="status-badge-lg status-{{ sv }}">{{ sv|upper }}</span>
+    </div>
+    <div class="d-flex gap-4 flex-wrap">
+      <div class="text-center">
+        <div style="font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px;">Bet</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:#fff;line-height:1;">
+          ${{ "%.2f"|format(parlay.bet_amount) }}
+        </div>
+      </div>
+      <div class="text-center">
+        <div style="font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px;">Potential</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:rgba(255,255,255,.5);line-height:1;">
+          ${{ "%.2f"|format(parlay.potential_payout or 0) }}
+        </div>
+      </div>
+      <div class="text-center">
+        <div style="font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px;">P&amp;L</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;line-height:1;
+                    color:{% if parlay.profit_loss > 0 %}#4ade80{% elif parlay.profit_loss < 0 %}#f87171{% else %}rgba(255,255,255,.5){% endif %};">
+          {% if parlay.profit_loss > 0 %}+{% endif %}${{ "%.2f"|format(parlay.profit_loss|abs) }}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% if parlay.notes %}
+  <div class="mt-3 pt-3" style="border-top:1px solid rgba(255,255,255,.06);font-size:.82rem;color:rgba(255,255,255,.4);">
+    <i class="bi bi-sticky me-1"></i>{{ parlay.notes }}
+  </div>
+  {% endif %}
+</div>
+
+<div class="row g-4">
+
+  {# ── Legs ── #}
+  <div class="col-lg-8">
+    <div class="rounded-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div class="d-flex align-items-center justify-content-between px-4 py-3"
+           style="border-bottom:1px solid rgba(255,255,255,.06);">
+        <div style="font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35);">
+          Legs
+          <span style="color:rgba(255,255,255,.2);font-weight:400;text-transform:none;letter-spacing:0;">
+            ({{ parlay.leg_count }})
+          </span>
+        </div>
+      </div>
+      {% for leg in parlay.legs %}
+      {% set lr = leg.result.value %}
+      <div class="px-4 py-3 leg-item" style="border-bottom:1px solid rgba(255,255,255,.04);">
+        <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+          <div class="d-flex align-items-start gap-3 flex-grow-1">
+            {# Leg number #}
+            <div class="flex-shrink-0"
+                 style="width:28px;height:28px;border-radius:6px;
+                        background:rgba(105,190,40,.08);border:1px solid rgba(105,190,40,.18);
+                        display:flex;align-items:center;justify-content:center;
+                        font-family:'Bebas Neue',sans-serif;font-size:.9rem;color:#69BE28;margin-top:1px;">
+              {{ loop.index }}
+            </div>
+            <div class="flex-grow-1">
+              <div class="fw-semibold mb-1" style="font-size:.92rem;">{{ leg.pick }}</div>
+              <div class="d-flex gap-2 flex-wrap">
+                <span style="font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+                             padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.45);">
+                  {{ leg.leg_type.value|replace('_',' ')|title }}
+                </span>
+                {% if leg.odds %}
+                <span style="font-size:.72rem;font-weight:700;color:rgba(255,255,255,.5);">
+                  {{ ('+' if leg.odds > 0 else '') + leg.odds|string }}
+                </span>
+                {% endif %}
+                {% if leg.game %}
+                <span style="font-size:.68rem;color:rgba(255,255,255,.3);">
+                  {{ leg.game.away_team.abbreviation if leg.game.away_team else '?' }}
+                  @ {{ leg.game.home_team.abbreviation if leg.game.home_team else '?' }}
+                </span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {# Result section #}
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <span class="status-badge status-{{ lr }}">{{ lr|upper }}</span>
+            <form method="POST" action="{{ url_for('parlays.set_leg_result', leg_id=leg.id) }}"
+                  class="d-flex gap-1 align-items-center">
+              <select name="result"
+                      class="form-select form-select-sm"
+                      style="background:rgba(0,34,68,.6);border-color:rgba(255,255,255,.1);
+                             color:#e2e8f0;font-size:.75rem;width:auto;padding:3px 8px;">
+                {% for r in ['pending','won','lost','push'] %}
+                <option value="{{ r }}" {{ 'selected' if leg.result.value == r }}>{{ r|title }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-sm"
+                      style="background:rgba(255,255,255,.07);color:rgba(255,255,255,.6);
+                             border:1px solid rgba(255,255,255,.1);border-radius:6px;
+                             font-size:.72rem;padding:3px 10px;white-space:nowrap;">
+                Save
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      {% if not parlay.legs %}
+      <div class="text-center py-4" style="color:rgba(255,255,255,.25);font-size:.84rem;">
+        No legs recorded for this parlay.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Sidebar ── #}
+  <div class="col-lg-4">
+
+    {# Set outcome #}
+    {% if sv == 'pending' %}
+    <div class="rounded-3 mb-3 p-3" style="background:#111820;border:1px solid rgba(105,190,40,.18);">
+      <div style="font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+                  color:rgba(105,190,40,.7);margin-bottom:12px;">
+        <i class="bi bi-check2-circle me-1"></i>Set Outcome
+      </div>
+      <form method="POST" action="{{ url_for('parlays.set_outcome', parlay_id=parlay.id) }}">
+        <div class="mb-2">
+          <label class="pf-lbl d-block mb-1">Result</label>
+          <select name="status" class="form-select form-select-sm pf-select" required>
+            <option value="">— Select result —</option>
+            <option value="won">Won</option>
+            <option value="lost">Lost</option>
+            <option value="push">Push</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="pf-lbl d-block mb-1">Actual Payout ($)</label>
+          <input type="number" name="actual_payout" class="form-control form-control-sm pf-input"
+                 step="0.01" min="0" placeholder="0.00">
+        </div>
+        <button type="submit" class="btn btn-sm w-100"
+                style="background:#69BE28;color:#001a0a;font-weight:700;letter-spacing:.05em;font-size:.82rem;">
+          <i class="bi bi-check-lg me-1"></i>Update Outcome
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    {# Details card #}
+    <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+      <div style="font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+                  color:rgba(255,255,255,.3);margin-bottom:12px;">Details</div>
+      <div class="d-flex flex-column gap-2">
+        {% if parlay.bet_date %}
+        <div class="detail-row">
+          <span class="detail-lbl">Date</span>
+          <span class="detail-val">{{ parlay.bet_date.strftime('%b %d, %Y') }}</span>
+        </div>
+        {% endif %}
+        {% if parlay.sportsbook %}
+        <div class="detail-row">
+          <span class="detail-lbl">Sportsbook</span>
+          <span class="detail-val">{{ parlay.sportsbook }}</span>
+        </div>
+        {% endif %}
+        <div class="detail-row">
+          <span class="detail-lbl">Bet Amount</span>
+          <span class="detail-val fw-bold">${{ "%.2f"|format(parlay.bet_amount) }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-lbl">Potential</span>
+          <span class="detail-val">${{ "%.2f"|format(parlay.potential_payout or 0) }}</span>
+        </div>
+        {% if sv != 'pending' %}
+        <div class="detail-row">
+          <span class="detail-lbl">Actual Payout</span>
+          <span class="detail-val">${{ "%.2f"|format(parlay.actual_payout or 0) }}</span>
+        </div>
+        {% endif %}
+        <div class="detail-row">
+          <span class="detail-lbl">Legs</span>
+          <span class="detail-val">{{ parlay.leg_count }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-lbl">Created</span>
+          <span class="detail-val" style="font-size:.75rem;">
+            {{ parlay.created_at.strftime('%b %d, %Y') if parlay.created_at else '—' }}
+          </span>
+        </div>
+      </div>
+      <div class="mt-3 pt-3" style="border-top:1px solid rgba(255,255,255,.06);">
+        <a href="{{ url_for('parlays.edit', parlay_id=parlay.id) }}"
+           class="btn btn-sm btn-outline-secondary w-100">
+          <i class="bi bi-pencil me-1"></i>Edit Parlay
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.status-badge {
+  display: inline-block;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.status-badge-lg {
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  padding: 5px 14px;
+  border-radius: 6px;
+}
+.status-won     { background: rgba(105,190,40,.15); color: #69BE28; }
+.status-lost    { background: rgba(248,113,113,.15); color: #f87171; }
+.status-push    { background: rgba(250,204,21,.12); color: #facc15; }
+.status-pending { background: rgba(255,255,255,.08); color: rgba(255,255,255,.5); }
+.status-partial { background: rgba(96,165,250,.12); color: #60a5fa; }
+
+.leg-item { transition: background .1s; }
+.leg-item:last-child { border-bottom: none !important; }
+.leg-item:hover { background: rgba(255,255,255,.02); }
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-lbl { font-size: .74rem; color: rgba(255,255,255,.35); }
+.detail-val { font-size: .82rem; color: #e2e8f0; }
+
+.pf-lbl {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.35);
+}
+.pf-input, .pf-select {
+  background: rgba(0,34,68,.6) !important;
+  border: 1px solid rgba(255,255,255,.1) !important;
+  color: #e2e8f0 !important;
+  font-size: .82rem;
+  border-radius: 6px !important;
+}
+.pf-input:focus, .pf-select:focus {
+  border-color: #69BE28 !important;
+  box-shadow: 0 0 0 2px rgba(105,190,40,.15) !important;
+}
+</style>
+{% endblock %}

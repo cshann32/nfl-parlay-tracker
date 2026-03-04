@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}{{ team.full_name or team.name }}{% endblock %}
+{% block content %}
+
+{% set tc = team.primary_color if team.primary_color else '#6c757d' %}
+
+{# Back #}
+<a href="{{ url_for('stats.teams') }}"
+   class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1 mb-3">
+  <i class="bi bi-arrow-left"></i> Teams
+</a>
+
+{# ── HERO ── #}
+<div class="rounded-3 mb-4 overflow-hidden"
+     style="background:#111820;border:1px solid rgba(255,255,255,.09);">
+  <div style="height:4px;background:{{ tc }};"></div>
+  <div class="d-flex align-items-center gap-4 px-4 py-4 position-relative">
+    {# Logo #}
+    {% if team.logo_url %}
+    <img src="{{ team.logo_url }}" alt="{{ team.abbreviation }}"
+         style="width:90px;height:90px;object-fit:contain;flex-shrink:0;">
+    {% endif %}
+    {# Info #}
+    <div>
+      <div class="fw-semibold text-uppercase mb-1"
+           style="font-size:.65rem;letter-spacing:.18em;color:{{ tc }};">
+        {{ team.conference }} &bull; {{ team.division }}
+      </div>
+      <h1 class="fw-black mb-2" style="font-size:2rem;letter-spacing:-.025em;line-height:1.1;">
+        {{ team.full_name or team.name }}
+      </h1>
+      <div style="font-size:.82rem;color:rgba(255,255,255,.4);">
+        {{ roster|length }} players on roster
+      </div>
+    </div>
+    {# Faded watermark #}
+    {% if team.logo_url %}
+    <img src="{{ team.logo_url }}"
+         class="position-absolute"
+         style="right:-10px;top:50%;transform:translateY(-50%);
+                height:140px;opacity:.06;pointer-events:none;user-select:none;">
+    {% endif %}
+  </div>
+</div>
+
+{# ── TABS ── #}
+<ul class="nav mb-4 gap-1" id="teamTabs" role="tablist">
+  {% for tab_id, tab_label in [('roster','Roster'), ('teamstats','Team Stats')] %}
+  <li class="nav-item">
+    <a class="px-4 py-2 rounded-pill text-decoration-none fw-semibold tab-pill {{ 'active' if loop.first }}"
+       data-bs-toggle="tab" href="#{{ tab_id }}" role="tab"
+       style="font-size:.82rem;">
+      {{ tab_label }}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="tab-content">
+
+  {# ── ROSTER TAB ── #}
+  <div class="tab-pane show active" id="roster" role="tabpanel">
+    {% set OFFENSE  = ['QB','RB','FB','WR','TE','OT','G','C','OL','OG','OC'] %}
+    {% set DEFENSE  = ['DE','DT','NT','LB','OLB','MLB','ILB','CB','S','SS','FS','DB','DL'] %}
+    {% set SPECIAL  = ['K','PK','P','LS','KR','PR'] %}
+
+    {% for group_name, positions in [('Offense', OFFENSE), ('Defense', DEFENSE), ('Special Teams', SPECIAL)] %}
+    {% set group_players = roster | selectattr('position', 'in', positions) | list %}
+    {% if group_players %}
+    <div class="mb-4">
+      <div class="section-header">
+        <span class="sh-label">{{ group_name }}</span>
+        <div class="sh-line"></div>
+      </div>
+      <div class="row g-2">
+        {% for p in group_players | sort(attribute='position') %}
+        {% set sc = '#198754' if p.status == 'Active'
+                    else '#dc3545' if p.status in ['IR','Out','Injured','PUP','NFI']
+                    else '#ffc107' if p.status in ['Questionable','Doubtful']
+                    else '#6c757d' %}
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+          <a href="{{ url_for('stats.player_detail', player_id=p.id) }}"
+             class="text-decoration-none d-flex align-items-center gap-3 px-3 py-2 rounded-3 roster-row"
+             style="background:#111820;border:1px solid rgba(255,255,255,.07);">
+            {# Headshot #}
+            <div style="flex-shrink:0;width:40px;height:40px;border-radius:50%;overflow:hidden;
+                        background:rgba(255,255,255,.05);border:2px solid {{ tc }}30;">
+              {% if p.image_url %}
+              <img src="{{ p.image_url }}" alt="{{ p.name }}"
+                   style="width:40px;height:40px;object-fit:cover;object-position:top center;">
+              {% else %}
+              <div class="d-flex align-items-center justify-content-center w-100 h-100">
+                <i class="bi bi-person-fill" style="font-size:1.1rem;color:rgba(255,255,255,.2);"></i>
+              </div>
+              {% endif %}
+            </div>
+            {# Info #}
+            <div style="min-width:0;flex:1;">
+              <div class="fw-semibold text-white lh-tight"
+                   style="font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                {{ p.name }}
+              </div>
+              <div style="font-size:.68rem;color:rgba(255,255,255,.38);">
+                {% if p.jersey_number %}#{{ p.jersey_number }} &bull; {% endif %}{{ p.position or '—' }}
+              </div>
+            </div>
+            {# Status dot #}
+            <div style="width:8px;height:8px;border-radius:50%;background:{{ sc }};flex-shrink:0;"
+                 title="{{ p.status or 'Unknown' }}"></div>
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    {# Any position not in the groups above #}
+    {% set ungrouped = roster | rejectattr('position', 'in', OFFENSE + DEFENSE + SPECIAL) | list %}
+    {% if ungrouped %}
+    <div class="mb-4">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <span class="sh-label">Other</span>
+        <div class="sh-line"></div>
+      </div>
+      <div class="row g-2">
+        {% for p in ungrouped %}
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+          <a href="{{ url_for('stats.player_detail', player_id=p.id) }}"
+             class="text-decoration-none d-flex align-items-center gap-3 px-3 py-2 rounded-3 roster-row"
+             style="background:#111820;border:1px solid rgba(255,255,255,.07);">
+            <div style="flex-shrink:0;width:40px;height:40px;border-radius:50%;overflow:hidden;
+                        background:rgba(255,255,255,.05);">
+              {% if p.image_url %}
+              <img src="{{ p.image_url }}" style="width:40px;height:40px;object-fit:cover;object-position:top center;">
+              {% else %}
+              <div class="d-flex align-items-center justify-content-center w-100 h-100">
+                <i class="bi bi-person-fill" style="font-size:1.1rem;color:rgba(255,255,255,.2);"></i>
+              </div>
+              {% endif %}
+            </div>
+            <div style="min-width:0;flex:1;">
+              <div class="fw-semibold text-white" style="font-size:.85rem;">{{ p.name }}</div>
+              <div style="font-size:.68rem;color:rgba(255,255,255,.38);">
+                {% if p.jersey_number %}#{{ p.jersey_number }} &bull; {% endif %}{{ p.position or '—' }}
+              </div>
+            </div>
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── TEAM STATS TAB ── #}
+  <div class="tab-pane" id="teamstats" role="tabpanel">
+    {# CAT_LABELS and STAT_LABELS injected by context processor #}
+    {% if stats %}
+    {% for cat, cat_stats in stats | groupby('category') %}
+    {% set season = cat_stats | selectattr('game_id', 'equalto', none) | list %}
+    {% if season %}
+    <div class="mb-4">
+      <div class="section-header">
+        <span class="sh-label">{{ CAT_LABELS.get(cat, cat | title) }}</span>
+        <div class="sh-line"></div>
+      </div>
+      <div class="row g-2">
+        {% for s in season %}
+        {% if s.value % 1 == 0 %}{% set dv = s.value | int %}{% else %}{% set dv = s.value | round(1) %}{% endif %}
+        <div class="col-6 col-sm-4 col-md-3">
+          <div class="stat-pill">
+            <span class="s-label">{{ STAT_LABELS.get(s.stat_type, s.stat_type) }}</span>
+            <span class="s-value">{{ dv }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% else %}
+    <p class="text-muted py-4 text-center">No team stats available.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.tab-pill {
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.55);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.tab-pill:hover:not(.active) {
+  background: rgba(255,255,255,.1);
+  color: #fff;
+}
+.roster-row { transition: background .12s, border-color .12s; }
+.roster-row:hover { background: rgba(255,255,255,.07) !important; border-color: rgba(255,255,255,.15) !important; }
+</style>
+<script>
+// Apply team color to active tab pill after DOM ready
+document.querySelectorAll('.tab-pill.active').forEach(el => {
+  el.style.background = '{{ team.primary_color or "#ffc107" }}';
+  el.style.color = '#000';
+  el.style.borderColor = '{{ team.primary_color or "#ffc107" }}';
+});
+document.querySelectorAll('.tab-pill').forEach(el => {
+  el.addEventListener('shown.bs.tab', function() {
+    document.querySelectorAll('.tab-pill').forEach(p => {
+      p.style.background = 'rgba(255,255,255,.06)';
+      p.style.color = 'rgba(255,255,255,.55)';
+      p.style.borderColor = 'rgba(255,255,255,.08)';
+    });
+    this.style.background = '{{ team.primary_color or "#ffc107" }}';
+    this.style.color = '#000';
+    this.style.borderColor = '{{ team.primary_color or "#ffc107" }}';
+  });
+});
+</script>
+{% endblock %}

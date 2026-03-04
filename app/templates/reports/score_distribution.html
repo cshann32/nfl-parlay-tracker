@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}Score & Totals Distribution — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="bi bi-bar-chart-steps me-2" style="color:#fb923c;"></i>Score &amp; Totals Distribution</h4>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      Combined score histogram · home vs away scoring averages · useful for betting over/unders
+    </div>
+  </div>
+  <a href="{{ url_for('reports.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Reports
+  </a>
+</div>
+
+{# Season selector #}
+<div class="d-flex align-items-center gap-2 mb-4">
+  <span class="sd-lbl">Season</span>
+  <div class="d-flex gap-1" id="sd-season-btns">
+    {% for s in seasons %}
+    <button class="sd-btn {% if loop.first %}active{% endif %}" data-season="{{ s }}">{{ s }}</button>
+    {% else %}
+    <button class="sd-btn active" data-season="2025">2025</button>
+    <button class="sd-btn" data-season="2024">2024</button>
+    {% endfor %}
+    <button class="sd-btn" data-season="">All Time</button>
+  </div>
+</div>
+
+{# KPI cards #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="sd-kpi">
+      <div class="sd-kpi-lbl">Avg Combined Total</div>
+      <div class="sd-kpi-val" id="sd-avg-total">—</div>
+      <div class="sd-kpi-sub">points per game</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="sd-kpi">
+      <div class="sd-kpi-lbl">Median Total</div>
+      <div class="sd-kpi-val" id="sd-median-total">—</div>
+      <div class="sd-kpi-sub">50th percentile</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="sd-kpi">
+      <div class="sd-kpi-lbl">Home PPG</div>
+      <div class="sd-kpi-val" style="color:#69BE28;" id="sd-home-ppg">—</div>
+      <div class="sd-kpi-sub">home field advantage</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="sd-kpi">
+      <div class="sd-kpi-lbl">Away PPG</div>
+      <div class="sd-kpi-val" style="color:#60a5fa;" id="sd-away-ppg">—</div>
+      <div class="sd-kpi-sub" id="sd-games-note">— games</div>
+    </div>
+  </div>
+</div>
+
+{# Charts #}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-8">
+    <div class="sd-panel">
+      <div class="sd-panel-title">Combined Score Distribution (5-point buckets)</div>
+      <div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-bottom:12px;">
+        Taller bars = more common total. Use this to gauge where the "real" over/under line should be.
+      </div>
+      <canvas id="sdHistChart" height="240"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="sd-panel">
+      <div class="sd-panel-title">Home vs Away Scoring</div>
+      <canvas id="sdHomeAwayChart" height="240"></canvas>
+    </div>
+  </div>
+</div>
+
+{# Weekly scoring trend chart #}
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="sd-panel">
+      <div class="sd-panel-title">Average Combined Score by Week</div>
+      <div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-bottom:12px;">
+        Spot which weeks trend high or low — useful context before placing your O/U.
+      </div>
+      <div id="sdWeeklyEmpty" style="display:none;text-align:center;padding:2rem;color:rgba(255,255,255,.3);font-size:.85rem;">
+        No weekly trend data available.
+      </div>
+      <canvas id="sdWeeklyChart" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="sd-panel">
+      <div class="sd-panel-title mb-1">How to use this for Over/Under betting</div>
+      <div style="font-size:.78rem;color:rgba(255,255,255,.4);line-height:1.6;">
+        The histogram above shows how often games land in each 5-point scoring bucket.
+        If the sportsbook sets an O/U at 47.5, count what % of games historically land above vs. below that line.
+        The average total and median are your baseline anchors.
+        The home PPG vs. away PPG gap tells you how much home-field affects scoring (typically 2–3 points).
+        The weekly trend line shows which parts of the season tend to run higher or lower.
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+.sd-lbl { font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35); }
+.sd-btn { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);
+  padding:4px 14px;border-radius:50px;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .12s; }
+.sd-btn:hover:not(.active) { background:rgba(255,255,255,.12);color:#fff; }
+.sd-btn.active { background:#fb923c;border-color:#fb923c;color:#000; }
+.sd-kpi { background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px;text-align:center; }
+.sd-kpi-lbl { font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px; }
+.sd-kpi-val { font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:2rem;line-height:1;color:#fff; }
+.sd-kpi-sub { font-size:.65rem;color:rgba(255,255,255,.3);margin-top:3px; }
+.sd-panel { background:#111820;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:18px; }
+.sd-panel-title { font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:12px; }
+</style>
+<script>
+Chart.defaults.color = '#adb5bd';
+Chart.defaults.font.family = "'Barlow Condensed','Segoe UI',sans-serif";
+const DARK = { grid:'rgba(255,255,255,.05)', tt:{bg:'#1a1a2e',border:'#2a2a4a'} };
+function tt() { return { backgroundColor:DARK.tt.bg, borderColor:DARK.tt.border, borderWidth:1, titleColor:'#fff', bodyColor:'#ccc' }; }
+
+let charts = {};
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+let activeSeason = document.querySelector('#sd-season-btns .sd-btn.active')?.dataset.season || '';
+
+async function load() {
+  const url = '/api/games/score-distribution' + (activeSeason ? '?season=' + activeSeason : '');
+  const data = await fetch(url).then(r => r.json()).catch(() => null);
+  if (!data || !data.games) return;
+
+  // KPIs
+  document.getElementById('sd-avg-total').textContent    = data.avg_total;
+  document.getElementById('sd-median-total').textContent = data.median_total;
+  document.getElementById('sd-home-ppg').textContent     = data.home_ppg;
+  document.getElementById('sd-away-ppg').textContent     = data.away_ppg;
+  document.getElementById('sd-games-note').textContent   = data.games + ' games analyzed';
+
+  // Histogram
+  const buckets = data.buckets;
+  const maxCount = Math.max(...buckets.map(b=>b.count));
+  destroyChart('sdHistChart');
+  charts['sdHistChart'] = new Chart(document.getElementById('sdHistChart'), {
+    type: 'bar',
+    data: {
+      labels: buckets.map(b => b.range),
+      datasets: [{
+        label: 'Games',
+        data: buckets.map(b => b.count),
+        backgroundColor: buckets.map(b => {
+          // Highlight buckets near the average
+          const mid = b.min + 2;
+          return Math.abs(mid - data.avg_total) <= 5 ? 'rgba(251,146,60,.85)' : 'rgba(251,146,60,.35)';
+        }),
+        borderColor: 'rgba(251,146,60,.6)',
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...tt(), callbacks: {
+          title: ctx => 'Total Points: ' + ctx[0].label,
+          label: ctx => ' ' + ctx.raw + ' games (' + (ctx.raw/data.games*100).toFixed(1) + '%)'
+        }},
+        annotation: {
+          annotations: {
+            avgLine: {
+              type: 'line',
+              xMin: data.avg_total,
+              xMax: data.avg_total,
+              borderColor: '#fbbf24',
+              borderWidth: 2,
+              borderDash: [6, 3],
+              label: { display: true, content: 'Avg ' + data.avg_total, color: '#fbbf24', position: 'start' }
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: DARK.grid }, ticks: { color: '#adb5bd' } },
+        y: { grid: { color: DARK.grid }, ticks: { color: '#adb5bd', stepSize: 1 }, beginAtZero: true },
+      }
+    }
+  });
+
+  // Home vs Away bar chart
+  destroyChart('sdHomeAwayChart');
+  charts['sdHomeAwayChart'] = new Chart(document.getElementById('sdHomeAwayChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Home Teams', 'Away Teams'],
+      datasets: [{
+        label: 'Avg PPG',
+        data: [data.home_ppg, data.away_ppg],
+        backgroundColor: ['rgba(105,190,40,.75)', 'rgba(96,165,250,.75)'],
+        borderRadius: 8,
+        barPercentage: 0.5,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { ...tt(), callbacks: { label: c=>' '+c.raw+' PPG avg' } } },
+      scales: {
+        x: { grid: { color: DARK.grid }, ticks: { color: '#e2e8f0', font: { weight: 600 } } },
+        y: { grid: { color: DARK.grid }, ticks: { color: '#adb5bd' }, beginAtZero: false },
+      }
+    }
+  });
+}
+
+async function loadWeeklyTrend() {
+  const url = '/api/games/weekly-scoring' + (activeSeason ? '?season=' + activeSeason : '');
+  const data = await fetch(url).then(r => r.json()).catch(() => []);
+  const canvas = document.getElementById('sdWeeklyChart');
+  const empty  = document.getElementById('sdWeeklyEmpty');
+  if (!data.length) {
+    empty.style.display = ''; canvas.style.display = 'none'; return;
+  }
+  empty.style.display = 'none'; canvas.style.display = '';
+  destroyChart('sdWeeklyChart');
+  charts['sdWeeklyChart'] = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: data.map(d => d.label),
+      datasets: [
+        { label: 'Avg Combined', data: data.map(d => d.avg_total),
+          borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,.12)',
+          borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, tension: 0.3, fill: true },
+        { label: 'Avg Home', data: data.map(d => d.avg_home),
+          borderColor: '#69BE28', backgroundColor: 'transparent',
+          borderWidth: 1.5, pointRadius: 2, borderDash: [4,3], tension: 0.3 },
+        { label: 'Avg Away', data: data.map(d => d.avg_away),
+          borderColor: '#60a5fa', backgroundColor: 'transparent',
+          borderWidth: 1.5, pointRadius: 2, borderDash: [4,3], tension: 0.3 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#adb5bd', boxWidth: 12, padding: 14 } },
+        tooltip: { ...tt(), callbacks: { footer: items => '  ' + data[items[0].dataIndex].games + ' games' } },
+      },
+      scales: {
+        x: { grid: { color: DARK.grid }, ticks: { color: '#adb5bd' } },
+        y: { grid: { color: DARK.grid }, ticks: { color: '#adb5bd' }, beginAtZero: false },
+      }
+    }
+  });
+}
+
+document.querySelectorAll('#sd-season-btns .sd-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#sd-season-btns .sd-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeSeason = btn.dataset.season;
+    load();
+    loadWeeklyTrend();
+  });
+});
+
+load();
+loadWeeklyTrend();
+</script>
+{% endblock %}

@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if parlay else 'New' }} Parlay — Beast Mode{% endblock %}
+{% block content %}
+
+<style>
+.pf-section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: .08em;
+  color: #fff;
+}
+.pf-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--sea-grey);
+  margin-bottom: .25rem;
+}
+.pf-input {
+  background: rgba(0,34,68,.5) !important;
+  border: 1px solid rgba(105,190,40,.2) !important;
+  color: #fff !important;
+  border-radius: 7px !important;
+  font-size: .86rem;
+}
+.pf-input:focus {
+  border-color: var(--sea-green) !important;
+  box-shadow: 0 0 0 3px rgba(105,190,40,.1) !important;
+}
+.pf-input option { background: #001530; }
+
+/* Leg card */
+.leg-row {
+  background: rgba(0,21,48,.7);
+  border: 1px solid rgba(105,190,40,.12) !important;
+  border-radius: 10px;
+  margin-bottom: .75rem;
+  transition: border-color .15s;
+}
+.leg-row:hover { border-color: rgba(105,190,40,.25) !important; }
+.leg-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: .9rem;
+  color: var(--sea-green);
+  letter-spacing: .1em;
+}
+
+/* Stat context panel */
+.stat-ctx-panel {
+  background: rgba(0,34,68,.6);
+  border: 1px solid rgba(105,190,40,.15);
+  border-radius: 8px;
+  padding: .7rem .85rem;
+  margin-top: .5rem;
+  display: none;
+}
+.stat-ctx-player {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: .5rem;
+}
+.stat-ctx-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid rgba(255,255,255,.1);
+}
+.stat-ctx-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: .95rem;
+  color: #fff;
+}
+.stat-ctx-meta {
+  font-size: .68rem;
+  color: var(--sea-grey);
+}
+.stat-ctx-pills { display: flex; flex-wrap: wrap; gap: .35rem; }
+.stat-ctx-pill {
+  background: rgba(0,34,68,.7);
+  border: 1px solid rgba(105,190,40,.15);
+  border-radius: 5px;
+  padding: .2rem .5rem;
+  font-size: .72rem;
+  color: rgba(255,255,255,.7);
+}
+.stat-ctx-pill strong { color: var(--sea-green); }
+.stat-ctx-sparkline { font-size: .68rem; color: var(--sea-grey); margin-top: .35rem; }
+.stat-ctx-bar {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+
+/* Player autocomplete dropdown */
+.player-suggest {
+  position: absolute;
+  width: 100%;
+  background: #001530;
+  border: 1px solid rgba(105,190,40,.2);
+  border-radius: 0 0 8px 8px;
+  z-index: 999;
+  max-height: 180px;
+  overflow-y: auto;
+  display: none;
+}
+.player-suggest-row {
+  padding: .4rem .75rem;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  font-size: .83rem;
+  transition: background .1s;
+}
+.player-suggest-row:hover { background: rgba(105,190,40,.08); }
+.player-suggest-row:last-child { border-bottom: none; }
+</style>
+
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="{{ url_for('parlays.index') }}" class="text-secondary text-decoration-none small d-flex align-items-center gap-1">
+    <i class="bi bi-arrow-left"></i> Parlays
+  </a>
+</div>
+
+<div class="d-flex align-items-center gap-2 mb-4">
+  <i class="bi bi-lightning-fill" style="color:var(--sea-green);font-size:1.3rem;"></i>
+  <div class="pf-section-title">{{ 'EDIT' if parlay else 'NEW' }} PARLAY</div>
+</div>
+
+<form method="POST" id="parlayForm">
+  <div class="row g-3">
+
+    {# ── Details column ── #}
+    <div class="col-lg-5">
+      <div class="card" style="border-color:rgba(105,190,40,.15);">
+        <div class="card-header">
+          <i class="bi bi-info-circle me-1" style="color:var(--sea-green);"></i>PARLAY DETAILS
+        </div>
+        <div class="card-body pb-2">
+          <div class="mb-3">
+            <div class="pf-label">Name (optional)</div>
+            <input type="text" name="name" class="form-control pf-input"
+                   value="{{ parlay.name or '' if parlay else '' }}"
+                   placeholder="e.g. Week 5 Sunday Parlay">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-7">
+              <div class="pf-label">Bet Date</div>
+              <input type="datetime-local" name="bet_date" class="form-control pf-input"
+                     value="{{ parlay.bet_date.strftime('%Y-%m-%dT%H:%M') if parlay and parlay.bet_date else '' }}">
+            </div>
+            <div class="col-5">
+              <div class="pf-label">Bet Amount ($)</div>
+              <input type="number" name="bet_amount" class="form-control pf-input" step="0.01" min="0.01" required
+                     value="{{ parlay.bet_amount if parlay else '' }}" placeholder="10.00">
+            </div>
+          </div>
+          <div class="mb-3">
+            <div class="pf-label">Sportsbook</div>
+            <select name="sportsbook" class="form-select pf-input">
+              <option value="">— Select —</option>
+              {% for book in ['DraftKings', 'FanDuel', 'BetMGM', 'Caesars', 'PointsBet', 'ESPN BET', 'Other'] %}
+              <option {{ 'selected' if parlay and parlay.sportsbook == book }}>{{ book }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <div class="pf-label">Notes</div>
+            <textarea name="notes" class="form-control pf-input" rows="2">{{ parlay.notes or '' if parlay else '' }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2">
+        <button type="submit" class="btn flex-grow-1"
+                style="background:var(--sea-green);color:#001a0a;font-family:'Bebas Neue';font-size:1.1rem;letter-spacing:.08em;border:none;border-radius:8px;">
+          <i class="bi bi-save"></i> {{ 'UPDATE' if parlay else 'CREATE' }} PARLAY
+        </button>
+        <a href="{{ url_for('parlays.index') }}" class="btn"
+           style="background:rgba(255,255,255,.07);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.1);border-radius:8px;">
+          Cancel
+        </a>
+      </div>
+    </div>
+
+    {# ── Legs column ── #}
+    <div class="col-lg-7">
+      <div class="card" style="border-color:rgba(105,190,40,.15);">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-list-ul me-1" style="color:var(--sea-green);"></i>LEGS</span>
+          <button type="button" class="btn btn-sm"
+                  style="background:rgba(105,190,40,.12);color:var(--sea-green);border:1px solid rgba(105,190,40,.25);border-radius:6px;font-size:.78rem;font-weight:700;letter-spacing:.06em;"
+                  onclick="addLeg()">
+            <i class="bi bi-plus"></i> ADD LEG
+          </button>
+        </div>
+        <div class="card-body p-2" id="legsContainer">
+          {% if parlay and parlay.legs %}
+            {% for leg in parlay.legs %}
+            <div class="leg-row p-2" data-index="{{ loop.index0 }}">
+              {% with l=leg, i=loop.index0 %}{% include 'parlays/_leg_fields.html' %}{% endwith %}
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="leg-row p-2" data-index="0">
+            {% with l=None, i=0 %}{% include 'parlays/_leg_fields.html' %}{% endwith %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let legIndex = {{ (parlay.legs|length if parlay and parlay.legs else 1) }};
+
+const STAT_LABELS_MAP = {
+  YDS:'Yards', TD:'TDs', CMP:'Comp', ATT:'Att', INT:'INT', RTG:'Rating',
+  CAR:'Carries', REC:'Rec', TGTS:'Targets', LNG:'Long', YAC:'YAC',
+  AVG:'Avg', FUM:'Fum', SCK:'Sacks', TOT:'Tackles', PD:'PD',
+};
+
+const POS_PRIMARY = {
+  QB: [['passing','YDS'],['passing','TD'],['passing','INT'],['passing','CMP']],
+  RB: [['rushing','YDS'],['rushing','TD'],['rushing','CAR'],['receiving','REC']],
+  WR: [['receiving','YDS'],['receiving','REC'],['receiving','TD'],['receiving','TGTS']],
+  TE: [['receiving','YDS'],['receiving','REC'],['receiving','TD'],['receiving','TGTS']],
+};
+
+function legHtml(idx) {
+  return `
+  <div class="d-flex align-items-center justify-content-between mb-1">
+    <span class="leg-num">LEG ${idx + 1}</span>
+    <button type="button" class="btn btn-sm" style="color:rgba(248,113,113,.7);border:1px solid rgba(248,113,113,.2);border-radius:5px;font-size:.72rem;padding:.15rem .45rem;" onclick="this.closest('.leg-row').remove()">
+      <i class="bi bi-trash"></i>
+    </button>
+  </div>
+  <div class="row g-1 align-items-start">
+    <div class="col-12 col-sm-5">
+      <div class="pf-label">Pick</div>
+      <input type="text" name="legs[${idx}][pick]" class="form-control pf-input form-control-sm"
+             required placeholder="e.g. Chiefs -3.5, Metcalf 74.5+ Yds">
+    </div>
+    <div class="col-5 col-sm-3">
+      <div class="pf-label">Type</div>
+      <select name="legs[${idx}][leg_type]" class="form-select pf-input form-select-sm" onchange="onTypeChange(this, ${idx})">
+        <option value="spread">Spread</option>
+        <option value="moneyline">Moneyline</option>
+        <option value="total">Total</option>
+        <option value="player_prop">Player Prop</option>
+        <option value="team_prop">Team Prop</option>
+      </select>
+    </div>
+    <div class="col-4 col-sm-2">
+      <div class="pf-label">Odds</div>
+      <input type="number" name="legs[${idx}][odds]" class="form-control pf-input form-control-sm" placeholder="-110">
+    </div>
+    <div class="col-3 col-sm-2">
+      <div class="pf-label">Game</div>
+      <select name="legs[${idx}][game_id]" class="form-select pf-input form-select-sm">
+        <option value="">—</option>
+        ${gameOptions}
+      </select>
+    </div>
+  </div>
+  <div class="player-prop-row mt-1" id="playerRow_${idx}" style="display:none;">
+    <div class="pf-label mt-1">Player</div>
+    <div class="position-relative">
+      <input type="text" class="form-control pf-input form-control-sm player-search-input"
+             id="playerSearch_${idx}" placeholder="Search player…" autocomplete="off"
+             oninput="onPlayerSearch(this, ${idx})">
+      <input type="hidden" name="legs[${idx}][player_id]" id="playerHidden_${idx}">
+      <div class="player-suggest" id="playerSuggest_${idx}"></div>
+    </div>
+    <div class="stat-ctx-panel" id="statCtx_${idx}"></div>
+  </div>`;
+}
+
+// Pre-build game option HTML once
+const gameOptions = (() => {
+  const games = {{ games_json | tojson if games_json is defined else '[]' }};
+  if (!games || !games.length) return '';
+  return games.map(g => `<option value="${g.id}">${g.away || '?'} @ ${g.home || '?'} W${g.week || ''}</option>`).join('');
+})();
+
+function addLeg() {
+  const container = document.getElementById('legsContainer');
+  const idx = legIndex++;
+  const div = document.createElement('div');
+  div.className = 'leg-row p-2';
+  div.dataset.index = idx;
+  div.innerHTML = legHtml(idx);
+  container.appendChild(div);
+}
+
+function onTypeChange(sel, idx) {
+  const row = document.getElementById(`playerRow_${idx}`);
+  if (row) row.style.display = sel.value === 'player_prop' ? '' : 'none';
+}
+
+let searchTimers = {};
+
+function onPlayerSearch(input, idx) {
+  clearTimeout(searchTimers[idx]);
+  const q = input.value.trim();
+  const suggest = document.getElementById(`playerSuggest_${idx}`);
+  if (q.length < 2) { suggest.style.display = 'none'; return; }
+  searchTimers[idx] = setTimeout(() => {
+    fetch(`/api/players/search?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(data => {
+        suggest.innerHTML = data.map(p =>
+          `<div class="player-suggest-row"
+                onmousedown="selectPlayer(${idx},${p.id},'${p.name.replace(/'/g,"\\'")}')">
+            <span style="color:#fff;">${p.name}</span>
+            <span style="color:var(--sea-grey);font-size:.75rem;margin-left:.4rem;">${p.position||''} · ${p.team||''}</span>
+          </div>`
+        ).join('');
+        suggest.style.display = data.length ? '' : 'none';
+      });
+  }, 200);
+}
+
+function selectPlayer(idx, playerId, name) {
+  document.getElementById(`playerHidden_${idx}`).value = playerId;
+  document.getElementById(`playerSearch_${idx}`).value = name;
+  document.getElementById(`playerSuggest_${idx}`).style.display = 'none';
+  loadStatContext(idx, playerId);
+}
+
+function loadStatContext(idx, playerId) {
+  const panel = document.getElementById(`statCtx_${idx}`);
+  if (!panel) return;
+  panel.style.display = '';
+  panel.innerHTML = '<div style="color:var(--sea-grey);font-size:.75rem;">Loading stats…</div>';
+
+  fetch(`/api/stats/player/${playerId}/context?season=2025`)
+    .then(r => r.json())
+    .then(data => {
+      const pos = data.position || '';
+      const tc  = data.team_color || '#69BE28';
+      const keys = POS_PRIMARY[pos] || [['rushing','YDS'],['receiving','YDS'],['passing','YDS']];
+      const weeks = data.weeks || [];
+      const stats = data.stats || {};
+
+      // Season totals
+      let pillsHtml = '';
+      for (const [cat, st] of keys) {
+        const key = `${cat}.${st}`;
+        if (data.season_totals && data.season_totals[key] !== undefined) {
+          const lbl = STAT_LABELS_MAP[st] || st;
+          const val = data.season_totals[key];
+          pillsHtml += `<div class="stat-ctx-pill"><strong>${Number.isInteger(val) ? val : val.toFixed(1)}</strong> ${lbl}</div>`;
+        }
+      }
+
+      // Recent sparkline for primary stat
+      let sparkHtml = '';
+      if (weeks.length && keys.length) {
+        const [pCat, pSt] = keys[0];
+        const vals = (stats[pCat] || {})[pSt] || [];
+        if (vals.length) {
+          const max = Math.max(...vals.filter(v => v !== null), 1);
+          const bars = vals.slice(-8).map(v => {
+            if (v === null) return `<span class="stat-ctx-bar" style="background:rgba(255,255,255,.1);" title="BYE"></span>`;
+            const h = Math.round((v / max) * 16);
+            const color = v > 0 ? tc : 'rgba(255,255,255,.15)';
+            return `<span class="stat-ctx-bar" style="background:${color};height:${h}px;width:8px;display:inline-block;vertical-align:bottom;border-radius:2px;" title="${v}"></span>`;
+          }).join('');
+          const lbl = STAT_LABELS_MAP[pSt] || pSt;
+          sparkHtml = `<div class="stat-ctx-sparkline">Last ${Math.min(8,vals.length)} games — ${lbl}: ${bars}</div>`;
+        }
+      }
+
+      panel.innerHTML = `
+        <div class="stat-ctx-player">
+          ${data.image_url ? `<img src="${data.image_url}" class="stat-ctx-img" style="border-color:${tc};">` : ''}
+          <div>
+            <div class="stat-ctx-name">${data.name}</div>
+            <div class="stat-ctx-meta">${pos} · ${data.team} · ${data.season} Season</div>
+          </div>
+          <a href="/stats/players/${playerId}" target="_blank" class="ms-auto"
+             style="font-size:.68rem;color:var(--sea-green);text-decoration:none;">VIEW PROFILE →</a>
+        </div>
+        ${pillsHtml ? `<div class="stat-ctx-pills mb-1">${pillsHtml}</div>` : ''}
+        ${sparkHtml}
+      `;
+    })
+    .catch(() => { panel.innerHTML = '<div style="color:rgba(255,255,255,.3);font-size:.75rem;">Stats unavailable.</div>'; });
+}
+
+// Initialize existing player_prop legs on page load
+document.querySelectorAll('.leg-row').forEach(row => {
+  const idx = row.dataset.index;
+  const typeSelect = row.querySelector(`[name="legs[${idx}][leg_type]"]`);
+  const playerRow = document.getElementById(`playerRow_${idx}`);
+  if (typeSelect && playerRow) {
+    if (typeSelect.value === 'player_prop') playerRow.style.display = '';
+    typeSelect.addEventListener('change', () => onTypeChange(typeSelect, idx));
+  }
+  // If a player is already linked, load context
+  const hiddenPlayer = row.querySelector(`[name="legs[${idx}][player_id]"]`);
+  const searchInput  = document.getElementById(`playerSearch_${idx}`);
+  if (hiddenPlayer && hiddenPlayer.value && searchInput && searchInput.value) {
+    loadStatContext(idx, hiddenPlayer.value);
+  }
+});
+
+// Also wire up blur for search inputs to hide suggest
+document.addEventListener('click', e => {
+  document.querySelectorAll('.player-suggest').forEach(el => {
+    if (!el.parentNode.contains(e.target)) el.style.display = 'none';
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+{% block title %}Users — Admin{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div class="d-flex align-items-center gap-3">
+    <a href="{{ url_for('admin.index') }}" class="text-secondary small text-decoration-none d-inline-flex align-items-center gap-1">
+      <i class="bi bi-arrow-left"></i> Admin
+    </a>
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-people-fill" style="font-size:1.1rem;color:#60a5fa;"></i>
+      <h4 class="fw-bold mb-0" style="font-size:1.2rem;letter-spacing:-.01em;">Users</h4>
+    </div>
+  </div>
+  <button type="button" data-bs-toggle="modal" data-bs-target="#addUserModal"
+          class="btn btn-sm"
+          style="background:#69BE28;color:#001a0a;font-weight:700;font-size:.82rem;
+                 padding:.4rem 1rem;border-radius:7px;border:none;">
+    <i class="bi bi-person-plus-fill me-1"></i>Add User
+  </button>
+</div>
+
+{# ── Role legend ── #}
+<div class="d-flex gap-3 mb-4 flex-wrap" style="font-size:.72rem;">
+  <span style="display:inline-flex;align-items:center;gap:.4rem;">
+    <span class="role-badge role-admin">Admin</span>
+    <span style="color:rgba(255,255,255,.4);">Full access + admin panel</span>
+  </span>
+  <span style="display:inline-flex;align-items:center;gap:.4rem;">
+    <span class="role-badge role-user">User</span>
+    <span style="color:rgba(255,255,255,.4);">Create parlays, view own data</span>
+  </span>
+  <span style="display:inline-flex;align-items:center;gap:.4rem;">
+    <span class="role-badge role-viewer">Viewer</span>
+    <span style="color:rgba(255,255,255,.4);">Read-only — stats &amp; news only</span>
+  </span>
+</div>
+
+{# ── Users table ── #}
+<div class="rounded-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);overflow:hidden;">
+  <div style="overflow-x:auto;">
+    <table class="table mb-0" id="usersTable" style="color:#e2e8f0;font-size:.84rem;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.2);">
+          <th class="ps-3 py-2 user-th">ID</th>
+          <th class="py-2 user-th">Username</th>
+          <th class="py-2 user-th">Email</th>
+          <th class="py-2 user-th">Role</th>
+          <th class="py-2 user-th">Status</th>
+          <th class="py-2 user-th">Joined</th>
+          <th class="py-2 user-th">Last Login</th>
+          <th class="pe-3 py-2 user-th">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+          <td class="ps-3 py-2" style="color:rgba(255,255,255,.35);">{{ u.id }}</td>
+          <td class="py-2 fw-semibold">{{ u.username }}</td>
+          <td class="py-2" style="color:rgba(255,255,255,.55);font-size:.78rem;">{{ u.email }}</td>
+          <td class="py-2">
+            <form method="POST" action="{{ url_for('admin.set_user_role', user_id=u.id) }}" class="d-flex gap-1 align-items-center">
+              <select name="role" class="form-select form-select-sm pf-select" style="width:auto;">
+                {% for r in ['admin','user','viewer'] %}
+                <option value="{{ r }}" {{ 'selected' if u.role.value == r }}>{{ r|title }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-sm"
+                      style="background:rgba(255,255,255,.07);color:rgba(255,255,255,.6);
+                             border:1px solid rgba(255,255,255,.1);border-radius:6px;font-size:.72rem;padding:3px 8px;">
+                Set
+              </button>
+            </form>
+          </td>
+          <td class="py-2">
+            <span style="font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:4px;
+                         {% if u.is_active %}background:rgba(105,190,40,.15);color:#69BE28;
+                         {% else %}background:rgba(248,113,113,.15);color:#f87171;{% endif %}">
+              {{ 'Active' if u.is_active else 'Inactive' }}
+            </span>
+          </td>
+          <td class="py-2" style="color:rgba(255,255,255,.45);font-size:.78rem;white-space:nowrap;">
+            {{ u.created_at.strftime('%b %d, %Y') }}
+          </td>
+          <td class="py-2" style="color:rgba(255,255,255,.35);font-size:.78rem;white-space:nowrap;">
+            {{ u.last_login.strftime('%b %d, %Y') if u.last_login else '—' }}
+          </td>
+          <td class="pe-3 py-2">
+            <div class="d-flex align-items-center gap-1">
+              {# ── Edit ── #}
+              <button type="button" class="action-btn" title="Edit user"
+                      onclick="openEditModal({{ u.id }}, '{{ u.username|e }}', '{{ u.email|e }}')"
+                      data-bs-toggle="modal" data-bs-target="#editUserModal">
+                <i class="bi bi-pencil-fill"></i>
+              </button>
+
+              {# ── Reset password ── #}
+              <button type="button" class="action-btn action-btn-yellow" title="Reset password"
+                      onclick="openResetModal({{ u.id }}, '{{ u.username|e }}')"
+                      data-bs-toggle="modal" data-bs-target="#resetPwModal">
+                <i class="bi bi-key-fill"></i>
+              </button>
+
+              {% if u.id != current_user.id %}
+              {# ── Toggle active ── #}
+              <form method="POST" action="{{ url_for('admin.toggle_user_active', user_id=u.id) }}" class="d-inline">
+                <button type="submit" class="action-btn {{ 'action-btn-red' if u.is_active else 'action-btn-green' }}"
+                        title="{{ 'Deactivate' if u.is_active else 'Activate' }}">
+                  <i class="bi bi-{{ 'person-x-fill' if u.is_active else 'person-check-fill' }}"></i>
+                </button>
+              </form>
+
+              {# ── Delete ── #}
+              <button type="button" class="action-btn action-btn-danger" title="Delete user"
+                      onclick="openDeleteModal({{ u.id }}, '{{ u.username|e }}')"
+                      data-bs-toggle="modal" data-bs-target="#deleteUserModal">
+                <i class="bi bi-trash3-fill"></i>
+              </button>
+              {% else %}
+              <span style="font-size:.7rem;color:rgba(255,255,255,.2);padding:0 4px;">you</span>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   MODALS
+   ══════════════════════════════════════════════════════════════════════════════ #}
+
+{# ── Add User Modal ── #}
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content um-modal">
+      <div class="modal-header um-header">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-person-plus-fill" style="color:#69BE28;font-size:1rem;"></i>
+          <h5 class="modal-title fw-black mb-0 um-title" id="addUserLabel">Create New User</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="opacity:.4;"></button>
+      </div>
+      <form method="POST" action="{{ url_for('admin.create_user') }}">
+        <div class="modal-body um-body">
+          <div class="mb-3">
+            <label class="um-label">Username</label>
+            <input type="text" name="username" required autocomplete="off"
+                   placeholder="e.g. jsmith" class="form-control modal-input">
+          </div>
+          <div class="mb-3">
+            <label class="um-label">Email</label>
+            <input type="email" name="email" required autocomplete="off"
+                   placeholder="e.g. john@example.com" class="form-control modal-input">
+          </div>
+          <div class="mb-3">
+            <label class="um-label">Password</label>
+            <input type="password" name="password" required
+                   placeholder="Temporary password" class="form-control modal-input">
+          </div>
+          <div class="mb-1">
+            <label class="um-label">Role</label>
+            <select name="role" class="form-select modal-input">
+              <option value="user" selected>User — standard access</option>
+              <option value="viewer">Viewer — read-only</option>
+              <option value="admin">Admin — full access</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer um-footer">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal"
+                  style="font-size:.82rem;">Cancel</button>
+          <button type="submit" class="btn btn-sm um-submit">
+            <i class="bi bi-person-check-fill me-1"></i>Create User
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── Edit User Modal ── #}
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content um-modal">
+      <div class="modal-header um-header">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-pencil-fill" style="color:#60a5fa;font-size:.95rem;"></i>
+          <h5 class="modal-title fw-black mb-0 um-title">Edit User</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="opacity:.4;"></button>
+      </div>
+      <form method="POST" id="editUserForm" action="">
+        <div class="modal-body um-body">
+          <div class="mb-3">
+            <label class="um-label">Username</label>
+            <input type="text" name="username" id="editUsername" required autocomplete="off"
+                   class="form-control modal-input">
+          </div>
+          <div class="mb-1">
+            <label class="um-label">Email</label>
+            <input type="email" name="email" id="editEmail" required autocomplete="off"
+                   class="form-control modal-input">
+          </div>
+        </div>
+        <div class="modal-footer um-footer">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal"
+                  style="font-size:.82rem;">Cancel</button>
+          <button type="submit" class="btn btn-sm"
+                  style="background:#60a5fa;color:#001a2e;font-weight:700;font-size:.82rem;
+                         padding:.4rem 1.1rem;border-radius:7px;border:none;">
+            <i class="bi bi-check2 me-1"></i>Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── Reset Password Modal ── #}
+<div class="modal fade" id="resetPwModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content um-modal">
+      <div class="modal-header um-header">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-key-fill" style="color:#fbbf24;font-size:.95rem;"></i>
+          <h5 class="modal-title fw-black mb-0 um-title">Reset Password</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="opacity:.4;"></button>
+      </div>
+      <form method="POST" id="resetPwForm" action="">
+        <div class="modal-body um-body">
+          <p style="font-size:.84rem;color:rgba(255,255,255,.5);margin-bottom:1rem;">
+            Setting a new password for <strong id="resetPwUsername" class="text-white"></strong>
+          </p>
+          <div class="mb-1">
+            <label class="um-label">New Password</label>
+            <input type="password" name="password" required minlength="8"
+                   placeholder="Min. 8 characters" class="form-control modal-input">
+          </div>
+        </div>
+        <div class="modal-footer um-footer">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal"
+                  style="font-size:.82rem;">Cancel</button>
+          <button type="submit" class="btn btn-sm"
+                  style="background:#fbbf24;color:#1c1200;font-weight:700;font-size:.82rem;
+                         padding:.4rem 1.1rem;border-radius:7px;border:none;">
+            <i class="bi bi-key-fill me-1"></i>Reset Password
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── Delete User Modal ── #}
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content um-modal">
+      <div class="modal-header um-header">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#f87171;font-size:.95rem;"></i>
+          <h5 class="modal-title fw-black mb-0 um-title" style="color:#f87171;">Delete User</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="opacity:.4;"></button>
+      </div>
+      <form method="POST" id="deleteUserForm" action="">
+        <div class="modal-body um-body">
+          <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);
+                      border-radius:10px;padding:1rem 1.1rem;margin-bottom:.5rem;">
+            <div style="font-size:.85rem;color:#fca5a5;font-weight:600;margin-bottom:.3rem;">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>This cannot be undone
+            </div>
+            <div style="font-size:.82rem;color:rgba(255,255,255,.45);">
+              All parlays, documents, and reports belonging to
+              <strong id="deleteUsername" class="text-white"></strong> will also be permanently deleted.
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer um-footer">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal"
+                  style="font-size:.82rem;">Cancel</button>
+          <button type="submit" class="btn btn-sm"
+                  style="background:#ef4444;color:#fff;font-weight:700;font-size:.82rem;
+                         padding:.4rem 1.1rem;border-radius:7px;border:none;">
+            <i class="bi bi-trash3-fill me-1"></i>Delete User
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* ── Table headers ── */
+.user-th {
+  font-size:.65rem!important;font-weight:700!important;letter-spacing:.1em;
+  text-transform:uppercase;color:rgba(255,255,255,.35)!important;border:none!important;
+}
+
+/* ── Role select ── */
+.pf-select {
+  background:rgba(0,34,68,.6)!important;border:1px solid rgba(255,255,255,.1)!important;
+  color:#e2e8f0!important;font-size:.78rem;border-radius:6px!important;
+}
+.pf-select:focus { border-color:#69BE28!important;box-shadow:0 0 0 2px rgba(105,190,40,.15)!important; }
+
+/* ── Role badge ── */
+.role-badge {
+  display:inline-block;padding:1px 7px;border-radius:4px;font-size:.65rem;font-weight:700;letter-spacing:.06em;
+}
+.role-admin { background:rgba(96,165,250,.15);color:#60a5fa; }
+.role-user  { background:rgba(105,190,40,.15);color:#69BE28; }
+.role-viewer{ background:rgba(251,191,36,.15);color:#fbbf24; }
+
+/* ── Action buttons ── */
+.action-btn {
+  display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;border-radius:6px;border:none;cursor:pointer;
+  font-size:.75rem;transition:background .12s,color .12s;
+  background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);
+}
+.action-btn:hover { background:rgba(255,255,255,.13);color:#fff; }
+.action-btn-yellow { background:rgba(251,191,36,.1);color:#fbbf24; }
+.action-btn-yellow:hover { background:rgba(251,191,36,.22);color:#fde68a; }
+.action-btn-green  { background:rgba(105,190,40,.1);color:#69BE28; }
+.action-btn-green:hover  { background:rgba(105,190,40,.22);color:#86efac; }
+.action-btn-red    { background:rgba(248,113,113,.1);color:#f87171; }
+.action-btn-red:hover    { background:rgba(248,113,113,.22);color:#fca5a5; }
+.action-btn-danger { background:rgba(239,68,68,.1);color:#f87171; }
+.action-btn-danger:hover { background:rgba(239,68,68,.25);color:#fca5a5; }
+
+/* ── Modal shared styles ── */
+.um-modal {
+  background:#111820;border:1px solid rgba(255,255,255,.12);border-radius:14px;
+}
+.um-header {
+  border-bottom:1px solid rgba(255,255,255,.07);padding:1.2rem 1.5rem .9rem;
+}
+.um-title { font-size:1rem;letter-spacing:-.01em; }
+.um-body   { padding:1.25rem 1.5rem; }
+.um-footer { border-top:1px solid rgba(255,255,255,.07);padding:.9rem 1.5rem; }
+.um-label  {
+  display:block;margin-bottom:.35rem;
+  font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(255,255,255,.38);
+}
+.um-submit {
+  background:#69BE28;color:#001a0a;font-weight:700;font-size:.82rem;
+  padding:.4rem 1.1rem;border-radius:7px;border:none;
+}
+
+/* ── Modal inputs ── */
+.modal-input {
+  background:rgba(255,255,255,.06)!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  color:#fff!important;border-radius:8px!important;
+  font-size:.88rem;padding:.55rem .85rem;
+}
+.modal-input::placeholder { color:rgba(255,255,255,.22)!important; }
+.modal-input:focus {
+  border-color:rgba(105,190,40,.45)!important;
+  box-shadow:0 0 0 3px rgba(105,190,40,.1)!important;
+  background:rgba(255,255,255,.08)!important;
+}
+.modal-input option { background:#0d1117;color:#fff; }
+
+/* ── DataTables overrides ── */
+#usersTable_wrapper .dataTables_length select,
+#usersTable_wrapper .dataTables_filter input {
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  color:#e2e8f0;border-radius:6px;padding:3px 8px;
+}
+#usersTable_wrapper .dataTables_info,
+#usersTable_wrapper .dataTables_paginate { color:rgba(255,255,255,.4);font-size:.78rem; }
+#usersTable_wrapper .paginate_button { color:rgba(255,255,255,.5)!important;border:none!important;background:none!important; }
+#usersTable_wrapper .paginate_button.current {
+  background:rgba(105,190,40,.15)!important;color:#69BE28!important;border-radius:4px;
+}
+</style>
+
+<script>
+function openEditModal(id, username, email) {
+  document.getElementById('editUserForm').action = '/admin/users/' + id + '/edit';
+  document.getElementById('editUsername').value = username;
+  document.getElementById('editEmail').value = email;
+}
+
+function openResetModal(id, username) {
+  document.getElementById('resetPwForm').action = '/admin/users/' + id + '/reset-password';
+  document.getElementById('resetPwUsername').textContent = username;
+}
+
+function openDeleteModal(id, username) {
+  document.getElementById('deleteUserForm').action = '/admin/users/' + id + '/delete';
+  document.getElementById('deleteUsername').textContent = username;
+}
+
+$(document).ready(function () {
+  $('#usersTable').DataTable({ paging: false });
+});
+</script>
+{% endblock %}

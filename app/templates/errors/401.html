@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}401 — Beast Mode Tracker{% endblock %}
+{% block content %}
+<div class="error-wrap">
+  <div class="error-inner">
+    <div class="error-icon"><i class="bi bi-lock-fill"></i></div>
+    <div class="error-code" style="color:#60a5fa;">401</div>
+    <div class="error-msg">Unauthorized</div>
+    <div class="error-desc">You need to sign in to access this page.</div>
+    <div class="d-flex gap-2 justify-content-center mt-4 flex-wrap">
+      <a href="/" class="btn" style="background:#69BE28;color:#001a0a;font-weight:700;padding:10px 24px;border-radius:8px;font-size:.88rem;">
+        <i class="bi bi-house-fill me-1"></i>Home
+      </a>
+      <button onclick="history.back()" class="btn btn-outline-secondary" style="font-size:.88rem;padding:10px 24px;">
+        <i class="bi bi-arrow-left me-1"></i>Go Back
+      </button>
+    </div>
+    <div class="error-quote">"I'm just 'bout that action, boss." — Marshawn Lynch #24</div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<style>
+.error-wrap { min-height:65vh;display:flex;align-items:center;justify-content:center;padding:2rem; }
+.error-inner { text-align:center;max-width:460px; }
+.error-icon { font-size:3.5rem;margin-bottom:1rem;opacity:.7; color:#60a5fa; }
+.error-code { font-family:'Bebas Neue',sans-serif;font-size:6rem;line-height:1;letter-spacing:.04em;margin-bottom:.2rem; }
+.error-msg { font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:700;color:#e2e8f0;letter-spacing:.04em;margin-bottom:.5rem; }
+.error-desc { font-size:.88rem;color:rgba(255,255,255,.4);line-height:1.5; }
+.error-quote { margin-top:2.5rem;font-size:.7rem;font-style:italic;color:rgba(255,255,255,.2);letter-spacing:.04em; }
+</style>
+{% endblock %}

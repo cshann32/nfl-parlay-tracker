@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Parlay ROI by Leg Count — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="bi bi-123 me-2" style="color:#a78bfa;"></i>Parlay ROI by Leg Count</h4>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      Win rate, ROI, and average payout broken down by how many legs you put in a parlay
+    </div>
+  </div>
+  <a href="{{ url_for('reports.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Reports
+  </a>
+</div>
+
+{# KPI row (filled by JS) #}
+<div class="row g-3 mb-4" id="lc-kpi-row">
+  <div class="col-6 col-md-3">
+    <div class="lc-kpi-card">
+      <div class="lc-kpi-lbl">Best Win Rate</div>
+      <div class="lc-kpi-val" id="lc-best-wr">—</div>
+      <div class="lc-kpi-sub" id="lc-best-wr-legs">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="lc-kpi-card">
+      <div class="lc-kpi-lbl">Best ROI</div>
+      <div class="lc-kpi-val" id="lc-best-roi">—</div>
+      <div class="lc-kpi-sub" id="lc-best-roi-legs">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="lc-kpi-card">
+      <div class="lc-kpi-lbl">Highest Avg Payout</div>
+      <div class="lc-kpi-val" id="lc-best-payout">—</div>
+      <div class="lc-kpi-sub" id="lc-best-payout-legs">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="lc-kpi-card">
+      <div class="lc-kpi-lbl">Most Common</div>
+      <div class="lc-kpi-val" id="lc-most-common">—</div>
+      <div class="lc-kpi-sub" id="lc-most-common-pct">—</div>
+    </div>
+  </div>
+</div>
+
+{# Charts row #}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-6">
+    <div class="lc-panel">
+      <div class="lc-panel-title">Win Rate by Leg Count</div>
+      <canvas id="lcWinRateChart" height="220"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="lc-panel">
+      <div class="lc-panel-title">ROI by Leg Count</div>
+      <canvas id="lcRoiChart" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-7">
+    <div class="lc-panel">
+      <div class="lc-panel-title">Average Payout When You Win</div>
+      <canvas id="lcPayoutChart" height="200"></canvas>
+    </div>
+  </div>
+  <div class="col-12 col-lg-5">
+    <div class="lc-panel">
+      <div class="lc-panel-title">Bets by Leg Count</div>
+      <canvas id="lcDistChart" height="200"></canvas>
+    </div>
+  </div>
+</div>
+
+{# Breakdown table #}
+<div class="lc-panel mb-4">
+  <div class="lc-panel-title mb-3">Detailed Breakdown</div>
+  <div style="overflow-x:auto;">
+    <table id="lc-table" style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(105,190,40,.15);">
+          <th class="lc-th">Legs</th>
+          <th class="lc-th text-center">Bets</th>
+          <th class="lc-th text-center">W–L–P</th>
+          <th class="lc-th text-center">Win Rate</th>
+          <th class="lc-th text-center">Net P&L</th>
+          <th class="lc-th text-center">ROI</th>
+          <th class="lc-th text-center">Avg Payout</th>
+        </tr>
+      </thead>
+      <tbody id="lc-tbody"></tbody>
+    </table>
+    <div id="lc-empty" class="text-center py-5" style="display:none;color:rgba(255,255,255,.25);">
+      <i class="bi bi-inbox d-block mb-2" style="font-size:2rem;opacity:.3;"></i>
+      No resolved parlays yet.
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+.lc-kpi-card { background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px;text-align:center; }
+.lc-kpi-lbl  { font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px; }
+.lc-kpi-val  { font-family:'Bebas Neue','Barlow Condensed',sans-serif;font-size:2rem;line-height:1;color:#fff; }
+.lc-kpi-sub  { font-size:.65rem;color:rgba(255,255,255,.3);margin-top:3px; }
+.lc-panel { background:#111820;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:18px; }
+.lc-panel-title { font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:12px; }
+.lc-th { font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.35);padding:6px 10px;text-align:left; }
+.lc-td { font-size:.84rem;color:#e2e8f0;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.04); }
+.lc-leg-badge { display:inline-flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:1.1rem;
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.3);color:#a78bfa; }
+</style>
+<script>
+Chart.defaults.color = '#adb5bd';
+Chart.defaults.font.family = "'Barlow Condensed','Segoe UI',sans-serif";
+const DARK = { grid:'rgba(255,255,255,.05)', tt:{bg:'#1a1a2e',border:'#2a2a4a'} };
+
+function tt() { return { backgroundColor:DARK.tt.bg, borderColor:DARK.tt.border, borderWidth:1, titleColor:'#fff', bodyColor:'#ccc' }; }
+
+async function load() {
+  const data = await fetch('/api/parlay/leg-count-breakdown').then(r=>r.json()).catch(()=>[]);
+  if (!data.length) {
+    document.getElementById('lc-empty').style.display = '';
+    return;
+  }
+
+  // ── KPIs ─────────────────────────────────────────────────────────
+  const byWR  = [...data].sort((a,b) => b.win_rate - a.win_rate)[0];
+  const byROI = [...data].sort((a,b) => b.roi - a.roi)[0];
+  const byPay = [...data].sort((a,b) => b.avg_payout - a.avg_payout)[0];
+  const byVol = [...data].sort((a,b) => b.total - a.total)[0];
+  const totalBets = data.reduce((s,d) => s+d.total, 0);
+
+  document.getElementById('lc-best-wr').textContent     = byWR.win_rate + '%';
+  document.getElementById('lc-best-wr-legs').textContent = byWR.label + '-leg parlays';
+  document.getElementById('lc-best-roi').textContent     = (byROI.roi >= 0 ? '+' : '') + byROI.roi + '%';
+  document.getElementById('lc-best-roi-legs').textContent = byROI.label + '-leg parlays';
+  document.getElementById('lc-best-payout').textContent  = '$' + byPay.avg_payout.toFixed(2);
+  document.getElementById('lc-best-payout-legs').textContent = byPay.label + '-leg parlays';
+  document.getElementById('lc-most-common').textContent  = byVol.label + '-leg';
+  document.getElementById('lc-most-common-pct').textContent = byVol.total + ' bets (' + (byVol.total/totalBets*100).toFixed(0) + '%)';
+
+  const labels = data.map(d => d.label + '-leg');
+  const purple = 'rgba(167,139,250,';
+
+  // ── Win rate chart ────────────────────────────────────────────────
+  new Chart(document.getElementById('lcWinRateChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{
+      label: 'Win Rate %',
+      data: data.map(d => d.win_rate),
+      backgroundColor: data.map(d => d.win_rate >= 50 ? 'rgba(105,190,40,.75)' : 'rgba(248,113,113,.7)'),
+      borderRadius: 6,
+    }]},
+    options: { responsive:true, plugins:{ legend:{display:false}, tooltip:{...tt(), callbacks:{label: c=>' '+c.raw+'%'}} },
+      scales: { x:{grid:{color:DARK.grid},ticks:{color:'#e2e8f0',font:{weight:600}}},
+                y:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',callback:v=>v+'%'},min:0,max:100} } }
+  });
+
+  // ── ROI chart ─────────────────────────────────────────────────────
+  new Chart(document.getElementById('lcRoiChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{
+      label: 'ROI %',
+      data: data.map(d => d.roi),
+      backgroundColor: data.map(d => d.roi >= 0 ? 'rgba(105,190,40,.75)' : 'rgba(248,113,113,.7)'),
+      borderRadius: 6,
+    }]},
+    options: { responsive:true, plugins:{ legend:{display:false}, tooltip:{...tt(), callbacks:{label: c=>' '+(c.raw>=0?'+':'')+c.raw+'%'}} },
+      scales: { x:{grid:{color:DARK.grid},ticks:{color:'#e2e8f0',font:{weight:600}}},
+                y:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',callback:v=>v+'%'}} } }
+  });
+
+  // ── Avg payout chart ──────────────────────────────────────────────
+  new Chart(document.getElementById('lcPayoutChart'), {
+    type: 'bar',
+    data: { labels, datasets: [{
+      label: 'Avg Payout $',
+      data: data.map(d => d.avg_payout),
+      backgroundColor: purple + '.65)',
+      borderColor: purple + '1)',
+      borderWidth: 1,
+      borderRadius: 6,
+    }]},
+    options: { responsive:true, plugins:{ legend:{display:false}, tooltip:{...tt(), callbacks:{label: c=>' $'+c.raw.toFixed(2)}} },
+      scales: { x:{grid:{color:DARK.grid},ticks:{color:'#e2e8f0',font:{weight:600}}},
+                y:{grid:{color:DARK.grid},ticks:{color:'#adb5bd',callback:v=>'$'+v}} } }
+  });
+
+  // ── Distribution donut ────────────────────────────────────────────
+  new Chart(document.getElementById('lcDistChart'), {
+    type: 'doughnut',
+    data: {
+      labels: data.map(d => d.label + '-leg'),
+      datasets: [{ data: data.map(d=>d.total),
+        backgroundColor: ['rgba(105,190,40,.85)','rgba(167,139,250,.8)','rgba(251,191,36,.8)','rgba(248,113,113,.8)','rgba(96,165,250,.8)','rgba(52,211,153,.8)'],
+        borderColor: '#111820', borderWidth: 2, hoverOffset: 6 }]
+    },
+    options: { cutout:'65%', plugins:{ legend:{position:'right',labels:{color:'#adb5bd',padding:12,boxWidth:12}}, tooltip:{...tt()} } }
+  });
+
+  // ── Table ─────────────────────────────────────────────────────────
+  const tbody = document.getElementById('lc-tbody');
+  tbody.innerHTML = data.map(d => `
+    <tr>
+      <td class="lc-td"><span class="lc-leg-badge">${d.label}</span></td>
+      <td class="lc-td text-center">${d.total}</td>
+      <td class="lc-td text-center" style="color:rgba(255,255,255,.55);">${d.won}W–${d.lost}L${d.push?'–'+d.push+'P':''}</td>
+      <td class="lc-td text-center">
+        <span style="font-weight:700;color:${d.win_rate>=50?'#69BE28':'#f87171'};">${d.win_rate}%</span>
+      </td>
+      <td class="lc-td text-center" style="font-weight:700;color:${d.net_pl>=0?'#4ade80':'#f87171'};">
+        ${d.net_pl>=0?'+':''}$${Math.abs(d.net_pl).toFixed(2)}
+      </td>
+      <td class="lc-td text-center" style="font-weight:700;color:${d.roi>=0?'#4ade80':'#f87171'};">
+        ${d.roi>=0?'+':''}${d.roi}%
+      </td>
+      <td class="lc-td text-center" style="color:#a78bfa;font-weight:700;">
+        ${d.avg_payout > 0 ? '$'+d.avg_payout.toFixed(2) : '—'}
+      </td>
+    </tr>`).join('');
+}
+
+load();
+</script>
+{% endblock %}

@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% block title %}Player Research — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+  <div>
+    <h4 class="fw-bold mb-0"><i class="bi bi-person-lines-fill me-2" style="color:#69BE28;"></i>Player Research</h4>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.35);margin-top:2px;">
+      Week-by-week stats + game log — ideal for prop betting research
+    </div>
+  </div>
+  <a href="{{ url_for('reports.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Reports
+  </a>
+</div>
+
+{# ── Player search bar ── #}
+<div class="rounded-3 p-3 mb-4" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <div class="d-flex align-items-center flex-wrap gap-3">
+    <div style="flex:1;min-width:220px;position:relative;">
+      <input id="player-search" type="text" placeholder="Search player name…" autocomplete="off"
+             value="{{ player.name if player else '' }}"
+             class="form-control form-control-sm"
+             style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;">
+      <div id="player-suggestions"
+           style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:200;
+                  background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:8px;
+                  max-height:220px;overflow-y:auto;"></div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="ctrl-lbl">Season</span>
+      <div class="d-flex gap-1" id="season-btns">
+        {% for s in seasons %}
+        <button class="pill-btn {% if s == season %}active{% endif %}" data-val="{{ s }}">{{ s }}</button>
+        {% else %}
+        <button class="pill-btn active" data-val="2025">2025</button>
+        <button class="pill-btn" data-val="2024">2024</button>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Player card (shown after selection) ── #}
+<div id="player-section" style="display:{% if player %}block{% else %}none{% endif %};">
+
+  {# Player header #}
+  <div class="d-flex align-items-center gap-4 rounded-3 p-3 mb-4"
+       style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+    <img id="player-img" src="{{ player.image_url if player and player.image_url else '' }}"
+         alt="" style="width:72px;height:72px;border-radius:50%;object-fit:cover;object-position:top;
+                       background:rgba(255,255,255,.06);flex-shrink:0;
+                       {% if not (player and player.image_url) %}display:none;{% endif %}">
+    <div>
+      <div id="player-name" style="font-size:1.4rem;font-weight:800;line-height:1;color:#fff;">
+        {{ player.name if player else '' }}
+      </div>
+      <div id="player-meta" style="font-size:.8rem;color:rgba(255,255,255,.45);margin-top:4px;">
+        {% if player %}
+          {{ player.position or '' }}
+          {% if player.team %} · <span style="color:{{ player.team.primary_color or '#69BE28' }};">{{ player.team.abbreviation }}</span> · {{ player.team.name }}{% endif %}
+        {% endif %}
+      </div>
+    </div>
+    <div id="season-totals" class="ms-auto d-flex gap-4 flex-wrap" style="text-align:center;"></div>
+  </div>
+
+  {# Stat selector + chart #}
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+          <div class="chart-lbl">Week-by-Week Performance</div>
+          <div class="d-flex gap-2 align-items-center">
+            <select id="chart-cat-sel" class="ctrl-sel"></select>
+            <select id="chart-stat-sel" class="ctrl-sel"></select>
+            <label class="d-flex align-items-center gap-1" style="font-size:.75rem;color:rgba(255,255,255,.4);cursor:pointer;">
+              <input type="checkbox" id="chart-avg-line" checked style="accent-color:#ffc107;">
+              Avg line
+            </label>
+          </div>
+        </div>
+        <div id="chart-empty" class="text-center py-4" style="display:none;color:rgba(255,255,255,.25);font-size:.85rem;">
+          <i class="bi bi-graph-up d-block mb-2" style="font-size:2rem;opacity:.3;"></i>
+          No weekly data for this stat/season.
+        </div>
+        <canvas id="gamelogChart" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+
+  {# Game log table #}
+  <div class="rounded-3 p-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+    <div class="chart-lbl mb-3">Game Log</div>
+    <div id="gamelog-table-wrap" style="overflow-x:auto;">
+      <p style="color:rgba(255,255,255,.25);font-size:.82rem;">Select a player to see game log.</p>
+    </div>
+  </div>
+
+</div>
+
+{# ── Empty state ── #}
+<div id="empty-state" style="{% if player %}display:none{% endif %}">
+  <div class="text-center py-5 rounded-3" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+    <i class="bi bi-person-circle d-block mb-3" style="font-size:3rem;color:rgba(255,255,255,.15);"></i>
+    <div style="font-weight:600;color:rgba(255,255,255,.5);margin-bottom:6px;">Search for a player above</div>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.25);">Enter a player name to load their weekly stats and game log</div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.ctrl-lbl { font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);white-space:nowrap; }
+.ctrl-sel { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#e2e8f0;padding:4px 10px;border-radius:6px;font-size:.82rem;cursor:pointer; }
+.ctrl-sel:focus { outline:none;border-color:#69BE28; }
+.pill-btn { background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);padding:3px 12px;border-radius:50px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .12s; }
+.pill-btn:hover:not(.active) { background:rgba(255,255,255,.12);color:#fff; }
+.pill-btn.active { background:#69BE28;border-color:#69BE28;color:#001a0a; }
+.chart-lbl { font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35); }
+.sug-item { padding:8px 14px;cursor:pointer;font-size:.85rem;color:#e2e8f0;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.05); }
+.sug-item:hover { background:rgba(255,255,255,.06); }
+.sug-pos { font-size:.65rem;font-weight:700;color:rgba(255,255,255,.4);min-width:24px; }
+.gl-tbl { width:100%;border-collapse:collapse;font-size:.8rem; }
+.gl-tbl th { padding:6px 10px;text-align:right;font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.3);border-bottom:1px solid rgba(105,190,40,.15); }
+.gl-tbl th:first-child { text-align:left; }
+.gl-tbl td { padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:#e2e8f0;text-align:right; }
+.gl-tbl td:first-child { text-align:left; }
+.gl-tbl tr:last-child td { border-bottom:none; }
+.gl-tbl tr:hover td { background:rgba(255,255,255,.03); }
+.kpi-sm { text-align:center;padding:0 12px; }
+.kpi-sm-lbl { font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35); }
+.kpi-sm-val { font-size:1.3rem;font-weight:800;color:#fff;font-family:'Bebas Neue','Barlow Condensed',sans-serif; }
+</style>
+<script>
+Chart.defaults.color = '#adb5bd';
+Chart.defaults.font.family = "'Barlow Condensed','Segoe UI',sans-serif";
+const DARK = { grid:'rgba(255,255,255,.05)', tooltip:{bg:'#1a1a2e',border:'#2a2a4a'} };
+
+const CAT_STAT_OPTS = {
+  passing:   [['YDS','Yards'],['TD','TDs'],['CMP','Completions'],['ATT','Attempts'],['INT','INTs'],['RTG','Rating']],
+  rushing:   [['YDS','Yards'],['TD','TDs'],['CAR','Carries'],['AVG','Avg/Car'],['LNG','Long']],
+  receiving: [['YDS','Yards'],['REC','Receptions'],['TD','TDs'],['TGTS','Targets'],['AVG','Avg/Rec'],['LNG','Long']],
+  defensive: [['TOT','Total Tackles'],['SOLO','Solo'],['SCK','Sacks'],['TFL','Tackles for Loss'],['PD','Pass Def'],['FF','Forced Fum']],
+  kicking:   [['FGM','FG Made'],['FGA','FG Att'],['XPM','XP Made']],
+  punting:   [['YDS','Total Yards'],['AVG','Avg'],['NET','Net Avg'],['NO','Punts']],
+};
+
+let currentPlayerId = {{ player.id if player else 'null' }};
+let currentSeason   = {{ season if season else 'null' }};
+let glData = null;
+let glChart = null;
+
+// ── Player search ──────────────────────────────────────
+const searchInput = document.getElementById('player-search');
+const suggestions = document.getElementById('player-suggestions');
+let searchTimer = null;
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const q = searchInput.value.trim();
+  if (q.length < 2) { suggestions.style.display='none'; return; }
+  searchTimer = setTimeout(async () => {
+    const data = await fetch(`/api/players/search?q=${encodeURIComponent(q)}&limit=10`).then(r=>r.json()).catch(()=>[]);
+    if (!data.length) { suggestions.style.display='none'; return; }
+    suggestions.innerHTML = data.map(p => `
+      <div class="sug-item" data-id="${p.id}" data-name="${p.name}">
+        <span class="sug-pos">${p.position||'?'}</span>
+        <span style="font-weight:600;">${p.name}</span>
+        <span style="font-size:.7rem;color:rgba(255,255,255,.35);">${p.team||''}</span>
+      </div>`).join('');
+    suggestions.style.display='block';
+  }, 200);
+});
+
+suggestions.addEventListener('click', e => {
+  const item = e.target.closest('.sug-item'); if (!item) return;
+  currentPlayerId = parseInt(item.dataset.id);
+  searchInput.value = item.dataset.name;
+  suggestions.style.display='none';
+  loadPlayer();
+});
+
+document.addEventListener('click', e => {
+  if (!searchInput.contains(e.target)) suggestions.style.display='none';
+});
+
+// ── Season toggle ──────────────────────────────────────
+document.getElementById('season-btns').addEventListener('click', e => {
+  const btn = e.target.closest('.pill-btn'); if (!btn) return;
+  document.querySelectorAll('#season-btns .pill-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSeason = parseInt(btn.dataset.val);
+  if (currentPlayerId) loadPlayer();
+});
+
+// ── Chart controls ─────────────────────────────────────
+document.getElementById('chart-cat-sel').addEventListener('change', e => {
+  populateStatSel(e.target.value);
+  renderChart();
+});
+document.getElementById('chart-stat-sel').addEventListener('change', renderChart);
+document.getElementById('chart-avg-line').addEventListener('change', renderChart);
+
+function populateCatSel(cats) {
+  const sel = document.getElementById('chart-cat-sel');
+  sel.innerHTML = cats.map(c => {
+    const label = c.charAt(0).toUpperCase()+c.slice(1);
+    return `<option value="${c}">${label}</option>`;
+  }).join('');
+  populateStatSel(sel.value);
+}
+
+function populateStatSel(cat) {
+  const sel = document.getElementById('chart-stat-sel');
+  const opts = CAT_STAT_OPTS[cat] || [['YDS','Yards']];
+  sel.innerHTML = opts.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+}
+
+// ── Load player data ───────────────────────────────────
+async function loadPlayer() {
+  if (!currentPlayerId) return;
+  const season = currentSeason || '';
+  const url = `/api/stats/player/${currentPlayerId}/context${season ? '?season='+season : ''}`;
+  const ctx = await fetch(url).then(r=>r.json()).catch(()=>null);
+  if (!ctx) return;
+
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('player-section').style.display='block';
+
+  // Header
+  const img = document.getElementById('player-img');
+  if (ctx.image_url) { img.src=ctx.image_url; img.style.display=''; }
+  else img.style.display='none';
+  document.getElementById('player-name').textContent = ctx.name;
+  document.getElementById('player-meta').innerHTML =
+    `${ctx.position||''} · <span style="color:${ctx.team_color||'#69BE28'};">${ctx.team||''}</span>`;
+
+  // Season totals KPIs
+  const totals = ctx.season_totals || {};
+  const kpiHtml = Object.entries(totals).slice(0,5).map(([k,v]) => {
+    const parts = k.split('.');
+    const label = parts[parts.length-1];
+    return `<div class="kpi-sm"><div class="kpi-sm-lbl">${label}</div><div class="kpi-sm-val">${Number.isInteger(v)?v:v.toFixed(1)}</div></div>`;
+  }).join('<div style="width:1px;background:rgba(255,255,255,.08);"></div>');
+  document.getElementById('season-totals').innerHTML = kpiHtml;
+
+  // Store gamelog data
+  glData = { weeks: ctx.weeks || [], stats: ctx.stats || {} };
+
+  // Populate category selector with available cats
+  const cats = Object.keys(glData.stats);
+  if (!cats.length) {
+    document.getElementById('chart-empty').style.display='';
+    document.getElementById('gamelogChart').style.display='none';
+  } else {
+    populateCatSel(cats);
+    renderChart();
+  }
+
+  // Build game log table
+  renderGamelogTable(glData);
+}
+
+function renderChart() {
+  if (!glData) return;
+  const cat  = document.getElementById('chart-cat-sel').value;
+  const stat = document.getElementById('chart-stat-sel').value;
+  const showAvg = document.getElementById('chart-avg-line').checked;
+
+  const catData = (glData.stats[cat] || {})[stat];
+  const weeks   = glData.weeks;
+
+  const canvas = document.getElementById('gamelogChart');
+  const empty  = document.getElementById('chart-empty');
+
+  if (!catData || !weeks.length) {
+    empty.style.display=''; canvas.style.display='none'; return;
+  }
+  empty.style.display='none'; canvas.style.display='';
+
+  const vals = catData.map(v => v ?? 0);
+  const avg  = vals.reduce((a,b)=>a+b,0) / vals.length;
+  const statLabel = (CAT_STAT_OPTS[cat]||[]).find(([v])=>v===stat)?.[1] || stat;
+
+  if (glChart) { glChart.destroy(); glChart=null; }
+
+  const datasets = [{
+    label: statLabel,
+    data: vals,
+    backgroundColor: 'rgba(105,190,40,.65)',
+    borderColor: '#69BE28',
+    borderWidth: 1,
+    borderRadius: 4,
+    type: 'bar',
+  }];
+
+  if (showAvg) {
+    datasets.push({
+      label: `Avg (${avg.toFixed(1)})`,
+      data: vals.map(()=>avg),
+      borderColor: '#ffc107',
+      borderWidth: 2,
+      borderDash: [6,3],
+      pointRadius: 0,
+      type: 'line',
+      fill: false,
+    });
+  }
+
+  glChart = new Chart(canvas.getContext('2d'), {
+    data: { labels: weeks.map(w=>'Wk '+w), datasets },
+    options: {
+      responsive:true,
+      plugins:{ legend:{ labels:{ color:'#adb5bd' } },
+        tooltip:{ backgroundColor:DARK.tooltip.bg, borderColor:DARK.tooltip.border, borderWidth:1, titleColor:'#fff', bodyColor:'#ccc' }
+      },
+      scales:{
+        x:{ grid:{color:DARK.grid}, ticks:{color:'#adb5bd'} },
+        y:{ grid:{color:DARK.grid}, ticks:{color:'#adb5bd'}, beginAtZero:true },
+      },
+    }
+  });
+}
+
+function renderGamelogTable(data) {
+  const weeks = data.weeks || [];
+  if (!weeks.length) {
+    document.getElementById('gamelog-table-wrap').innerHTML =
+      '<p style="color:rgba(255,255,255,.25);font-size:.82rem;">No game-by-game data available.</p>';
+    return;
+  }
+
+  // Collect all (cat, stat) pairs
+  const cols = [];
+  for (const [cat, stats] of Object.entries(data.stats)) {
+    for (const st of Object.keys(stats)) {
+      const pref = Object.keys(CAT_STAT_OPTS).find(c=>CAT_STAT_OPTS[c].find(([v])=>v===st));
+      if (pref || cols.length < 10) cols.push([cat, st]);
+    }
+    if (cols.length >= 10) break;
+  }
+
+  const thead = `<tr>
+    <th>Week</th>
+    ${cols.map(([c,s])=>`<th>${s}</th>`).join('')}
+  </tr>`;
+
+  const tbody = weeks.map((wk, i) => {
+    const cells = cols.map(([cat, st]) => {
+      const v = (data.stats[cat]?.[st]?.[i]) ?? null;
+      if (v === null) return `<td style="color:rgba(255,255,255,.2);">—</td>`;
+      const fmt = Number.isInteger(v) ? v : v.toFixed(1);
+      const isKey = st === 'YDS';
+      const isTD  = st === 'TD' && v > 0;
+      const style = isTD ? 'color:#4ade80;font-weight:700;' : isKey ? 'color:#e2e8f0;font-weight:600;' : '';
+      return `<td style="${style}">${fmt}</td>`;
+    }).join('');
+    return `<tr><td style="font-weight:600;color:#e2e8f0;">Wk ${wk}</td>${cells}</tr>`;
+  }).join('');
+
+  document.getElementById('gamelog-table-wrap').innerHTML =
+    `<table class="gl-tbl"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+
+// ── Init ───────────────────────────────────────────────
+{% if player %}
+loadPlayer();
+{% endif %}
+</script>
+{% endblock %}
