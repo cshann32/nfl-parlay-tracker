@@ -28,6 +28,9 @@ services:
       POSTGRES_PASSWORD: nflpassword
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Seed script: only runs on a fresh (empty) volume.
+      # Includes all tables + data so the app starts pre-populated.
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
     networks:
       - app_network
     healthcheck:

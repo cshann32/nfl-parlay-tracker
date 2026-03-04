@@ -35,6 +35,8 @@ env/
 # macOS
 .DS_Store
 
-# Database dumps
+# Database dumps (exclude loose files, but track the bundled seed data)
 *.sql
 *.dump
+!docker/initdb/*.sql
+!docker/initdb/*.sql.gz
