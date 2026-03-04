@@ -92,6 +92,36 @@
   </div>
 </div>
 
+{# ── NFL Headlines (top 3) ───────────────────────────────────── #}
+{% if articles %}
+<div class="mb-4">
+  <div class="d-flex align-items-center justify-content-between mb-2">
+    <span class="section-label"><i class="bi bi-newspaper me-1" style="color:var(--sea-green);"></i>NFL HEADLINES</span>
+    <a href="{{ url_for('dashboard.news') }}" class="section-more-link">ALL STORIES →</a>
+  </div>
+  <div class="row g-3">
+    {% for a in articles[:3] %}
+    <div class="col-12 col-sm-6 col-lg-4">
+      <a href="{{ a.link }}" target="_blank" rel="noopener" class="news-card">
+        {% if a.thumbnail %}
+        <div class="news-card-img" style="background-image:url('{{ a.thumbnail }}');"></div>
+        {% else %}
+        <div class="news-card-img news-card-img-placeholder"><i class="bi bi-camera-video" style="font-size:2rem;opacity:.3;"></i></div>
+        {% endif %}
+        <div class="news-card-body">
+          <div class="news-card-title">{{ a.title }}</div>
+          {% if a.description %}<div class="news-card-desc">{{ a.description | truncate(90, True, '…') }}</div>{% endif %}
+          {% if a.pub_date %}
+          <div class="news-card-date"><i class="bi bi-clock me-1"></i>{% if a.published_at %}{{ a.published_at.strftime('%b %-d, %Y') }}{% else %}{{ a.pub_date[:16] }}{% endif %}</div>
+          {% endif %}
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {# ── Season State Banner ──────────────────────────────────────── #}
 <div class="mb-3 d-flex align-items-center gap-2">
   {% if season_state.state == "regular_season" %}
@@ -260,6 +290,32 @@
     </div>
   </div>
 </div>
+
+{# ── NFL Headlines (middle 3) ────────────────────────────────── #}
+{% if articles | length > 3 %}
+<div class="mb-4">
+  <div class="row g-3">
+    {% for a in articles[3:6] %}
+    <div class="col-12 col-sm-6 col-lg-4">
+      <a href="{{ a.link }}" target="_blank" rel="noopener" class="news-card">
+        {% if a.thumbnail %}
+        <div class="news-card-img" style="background-image:url('{{ a.thumbnail }}');"></div>
+        {% else %}
+        <div class="news-card-img news-card-img-placeholder"><i class="bi bi-camera-video" style="font-size:2rem;opacity:.3;"></i></div>
+        {% endif %}
+        <div class="news-card-body">
+          <div class="news-card-title">{{ a.title }}</div>
+          {% if a.description %}<div class="news-card-desc">{{ a.description | truncate(90, True, '…') }}</div>{% endif %}
+          {% if a.pub_date %}
+          <div class="news-card-date"><i class="bi bi-clock me-1"></i>{% if a.published_at %}{{ a.published_at.strftime('%b %-d, %Y') }}{% else %}{{ a.pub_date[:16] }}{% endif %}</div>
+          {% endif %}
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
 {# ── Prediction Report ───────────────────────────────────────── #}
 <div class="row g-3 mb-4">
@@ -529,45 +585,6 @@
     </div>
   </div>
 </div>
-
-{# ── NFL Headlines ───────────────────────────────────────────── #}
-{% if articles %}
-<div class="mb-4">
-  <div class="d-flex align-items-center justify-content-between mb-2">
-    <span class="section-label"><i class="bi bi-newspaper me-1" style="color:var(--sea-green);"></i>NFL HEADLINES</span>
-    <a href="{{ url_for('dashboard.news') }}" class="section-more-link">ALL STORIES →</a>
-  </div>
-  <div class="row g-3">
-    {% for a in articles %}
-    <div class="col-12 col-sm-6 col-lg-4">
-      <a href="{{ a.link }}" target="_blank" rel="noopener" class="news-card">
-        {% if a.thumbnail %}
-        <div class="news-card-img" style="background-image:url('{{ a.thumbnail }}');"></div>
-        {% else %}
-        <div class="news-card-img news-card-img-placeholder"><i class="bi bi-camera-video" style="font-size:2rem;opacity:.3;"></i></div>
-        {% endif %}
-        <div class="news-card-body">
-          <div class="news-card-title">{{ a.title }}</div>
-          {% if a.description %}
-          <div class="news-card-desc">{{ a.description | truncate(90, True, '…') }}</div>
-          {% endif %}
-          {% if a.pub_date %}
-          <div class="news-card-date">
-            <i class="bi bi-clock me-1"></i>
-            {% if a.published_at %}
-              {{ a.published_at.strftime('%b %-d, %Y') }}
-            {% else %}
-              {{ a.pub_date[:16] }}
-            {% endif %}
-          </div>
-          {% endif %}
-        </div>
-      </a>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
 
 {# ── Quick stats + Quick links ──────────────────────────────── #}
 <div class="row g-3">
