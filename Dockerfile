@@ -22,13 +22,13 @@ COPY . .
 RUN mkdir -p /app/logs /app/uploads \
     && useradd -m -u 1000 appuser \
     && chown -R appuser:appuser /app \
-    && chmod +x /app/entrypoint.sh
+    && chmod +x /app/docker/entrypoint.sh
 
 USER appuser
 
 EXPOSE 5000
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
 
 # Production: Gunicorn with 2 workers, 2 threads each
 # Dev override: ["flask", "run", "--host=0.0.0.0", "--port=5000"]

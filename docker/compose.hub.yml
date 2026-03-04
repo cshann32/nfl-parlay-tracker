@@ -5,7 +5,7 @@ version: "3.9"
 #
 #   1. Copy this file + .env.example to any machine that has Docker
 #   2. cp .env.example .env  (set SECRET_KEY)
-#   3. docker-compose -f docker-compose.hub.yml up -d
+#   3. docker-compose -f docker/compose.hub.yml up -d
 #
 # The app image is pulled from Docker Hub: bigg313rd/nfl-parlay-tracker
 # Postgres is pre-seeded with data on first start.
@@ -79,7 +79,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./uploads:/app/uploads:ro
     depends_on:
       - app
