@@ -1,11 +1,14 @@
 version: "3.9"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Production compose file — run with:
-#   docker-compose up --build -d
+# Pull-and-run compose — no source code or build required.
 #
-# For local development use the override:
-#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#   1. Copy this file + .env.example to any machine that has Docker
+#   2. cp .env.example .env  (set SECRET_KEY)
+#   3. docker-compose -f docker-compose.hub.yml up -d
+#
+# The app image is pulled from Docker Hub: bigg313rd/nfl-parlay-tracker
+# Postgres is pre-seeded with data on first start.
 # ─────────────────────────────────────────────────────────────────────────────
 
 networks:
@@ -18,7 +21,6 @@ volumes:
 
 services:
 
-  # ── PostgreSQL ──────────────────────────────────────────────────────────────
   db:
     image: postgres:15-alpine
     restart: unless-stopped
@@ -28,9 +30,6 @@ services:
       POSTGRES_PASSWORD: nflpassword
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Seed script: only runs on a fresh (empty) volume.
-      # Includes all tables + data so the app starts pre-populated.
-      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
     networks:
       - app_network
     healthcheck:
@@ -39,7 +38,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Redis (sessions + cache) ────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -53,9 +51,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # ── Flask app (Gunicorn) ────────────────────────────────────────────────────
   app:
-    build: .
     image: bigg313rd/nfl-parlay-tracker:latest
     restart: unless-stopped
     env_file: .env
@@ -76,9 +72,7 @@ services:
         condition: service_healthy
     networks:
       - app_network
-    # Not exposed directly — Nginx handles all public traffic
 
-  # ── Nginx reverse proxy ─────────────────────────────────────────────────────
   nginx:
     image: nginx:alpine
     restart: unless-stopped
