@@ -140,6 +140,26 @@
   <span style="font-size:.7rem;color:var(--sea-grey);letter-spacing:.06em;">{{ season_state.label }}</span>
 </div>
 
+{# ── Kickoff Countdown (offseason only) ─────────────────────── #}
+{% if is_offseason %}
+<div class="countdown-wrap mb-4">
+  <div class="countdown-label">
+    <i class="bi bi-alarm-fill me-2" style="color:var(--sea-green);"></i>
+    2026 NFL KICKOFF COUNTDOWN
+  </div>
+  <div class="countdown-units" id="countdown">
+    <div class="cdu"><span class="cdu-val" id="cd-d">---</span><span class="cdu-lbl">DAYS</span></div>
+    <span class="cdu-sep">:</span>
+    <div class="cdu"><span class="cdu-val" id="cd-h">--</span><span class="cdu-lbl">HRS</span></div>
+    <span class="cdu-sep">:</span>
+    <div class="cdu"><span class="cdu-val" id="cd-m">--</span><span class="cdu-lbl">MIN</span></div>
+    <span class="cdu-sep">:</span>
+    <div class="cdu"><span class="cdu-val" id="cd-s">--</span><span class="cdu-lbl">SEC</span></div>
+  </div>
+  <div class="countdown-sub">SEPT {{ kickoff_iso[8:10] }}, {{ kickoff_iso[:4] }} · 8:20 PM ET · NFL KICKOFF NIGHT</div>
+</div>
+{% endif %}
+
 {# ── Season Predictions Carousel ─────────────────────────────── #}
 {% if season_predictions %}
 <div class="pred-carousel-wrap mb-4">
@@ -444,10 +464,79 @@
         {% endif %}
       </div>
       {% else %}
+      {% if recent_odds %}
+      {# Offseason fallback: show closing lines from the DB #}
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr style="border-bottom:1px solid rgba(105,190,40,.12);">
+                <th class="ps-3 py-2" style="color:var(--sea-grey);font-size:.62rem;letter-spacing:.07em;">MATCHUP</th>
+                <th class="py-2" style="color:var(--sea-grey);font-size:.62rem;letter-spacing:.07em;">DATE</th>
+                <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.62rem;letter-spacing:.07em;">SPREAD</th>
+                <th class="py-2 text-center" style="color:var(--sea-grey);font-size:.62rem;letter-spacing:.07em;">O/U</th>
+                <th class="pe-3 py-2 text-center" style="color:var(--sea-grey);font-size:.62rem;letter-spacing:.07em;">ML (HOME)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for o in recent_odds %}
+              {% set g = o.game %}
+              <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+                <td class="ps-3 py-2">
+                  <div style="font-size:.82rem;font-weight:600;color:#fff;">
+                    {{ g.away_team.abbreviation if g.away_team else '?' }}
+                    <span style="color:rgba(255,255,255,.3);margin:0 .3rem;">@</span>
+                    {{ g.home_team.abbreviation if g.home_team else '?' }}
+                  </div>
+                  <div style="font-size:.62rem;color:var(--sea-grey);">{{ o.source }}</div>
+                </td>
+                <td class="py-2" style="font-size:.75rem;color:rgba(255,255,255,.55);white-space:nowrap;">
+                  {{ g.game_date.strftime('%b %-d, %Y') if g.game_date else '—' }}
+                </td>
+                <td class="py-2 text-center">
+                  {% if o.home_spread is not none %}
+                    {% set sp = o.home_spread | float %}
+                    <span style="font-family:'Bebas Neue',sans-serif;font-size:.95rem;
+                      color:{{ 'var(--sea-green)' if sp < 0 else '#f87171' }};">
+                      {{ g.home_team.abbreviation if g.home_team else '' }}
+                      {{ '+' if sp > 0 else '' }}{{ "%.1f"|format(sp) }}
+                    </span>
+                  {% else %}<span style="color:rgba(255,255,255,.2);">—</span>{% endif %}
+                </td>
+                <td class="py-2 text-center">
+                  {% if o.over_under is not none %}
+                    <span style="font-family:'Bebas Neue',sans-serif;font-size:.95rem;color:rgba(255,255,255,.7);">
+                      {{ "%.1f"|format(o.over_under | float) }}
+                    </span>
+                  {% else %}<span style="color:rgba(255,255,255,.2);">—</span>{% endif %}
+                </td>
+                <td class="pe-3 py-2 text-center">
+                  {% if o.home_moneyline is not none %}
+                    {% set ml = o.home_moneyline | int %}
+                    <span style="font-family:'Bebas Neue',sans-serif;font-size:.95rem;
+                      color:{{ '#f87171' if ml < 0 else 'var(--sea-green)' }};">
+                      {{ '+' if ml > 0 else '' }}{{ ml }}
+                    </span>
+                  {% else %}<span style="color:rgba(255,255,255,.2);">—</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer" style="border-top:1px solid rgba(105,190,40,.08);">
+        <span style="font-size:.7rem;color:var(--sea-grey);">
+          <i class="bi bi-info-circle me-1"></i>Closing lines from the 2025 season ·
+          <a href="{{ url_for('stats.predictions') }}" style="color:var(--sea-green);font-size:.7rem;">Try the predictor →</a>
+        </span>
+      </div>
+      {% else %}
       <div class="card-body text-center py-4" style="color:var(--sea-grey);font-size:.82rem;">
         <i class="bi bi-calendar-x me-1"></i>No game data available.
         <a href="{{ url_for('stats.predictions') }}" style="color:var(--sea-green);">Open Predictions Tool →</a>
       </div>
+      {% endif %}
       {% endif %}
     </div>
   </div>
@@ -992,6 +1081,70 @@
 .sea-badge-w { background: rgba(105,190,40,.2); color: var(--sea-green); border: 1px solid rgba(105,190,40,.4); }
 .sea-badge-l { background: rgba(248,113,113,.15); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
 
+/* ── Kickoff Countdown ───────────────── */
+.countdown-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: linear-gradient(135deg, rgba(0,34,68,.9) 0%, rgba(0,17,34,.97) 100%);
+  border: 1px solid rgba(105,190,40,.25);
+  border-radius: 12px;
+  padding: 1rem 1.6rem;
+  flex-wrap: wrap;
+}
+.countdown-label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: .12em;
+  color: rgba(255,255,255,.7);
+  white-space: nowrap;
+}
+.countdown-units {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex: 1;
+}
+.cdu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 56px;
+}
+.cdu-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: var(--sea-green);
+  letter-spacing: .04em;
+}
+.cdu-lbl {
+  font-size: .55rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  color: var(--sea-grey);
+  margin-top: .1rem;
+}
+.cdu-sep {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  color: rgba(105,190,40,.4);
+  margin-bottom: .6rem;
+  align-self: center;
+}
+.countdown-sub {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: rgba(255,255,255,.25);
+  white-space: nowrap;
+  margin-left: auto;
+}
+@media (max-width: 576px) {
+  .countdown-sub { display: none; }
+  .countdown-wrap { gap: 1rem; }
+}
+
 /* ── Section label / more link ──────── */
 .section-label {
   font-family: 'Barlow Condensed', sans-serif;
@@ -1129,6 +1282,31 @@
 
 {% block scripts %}
 <script>
+// ── Kickoff Countdown ──────────────────────────────────────────
+(function() {
+  const target = new Date("{{ kickoff_iso }}");
+  const cdD = document.getElementById('cd-d');
+  const cdH = document.getElementById('cd-h');
+  const cdM = document.getElementById('cd-m');
+  const cdS = document.getElementById('cd-s');
+  if (!cdD) return;  // not on page (in-season)
+
+  function tick() {
+    const diff = target - new Date();
+    if (diff <= 0) {
+      cdD.textContent = '000'; cdH.textContent = '00';
+      cdM.textContent = '00'; cdS.textContent = '00';
+      return;
+    }
+    cdD.textContent = String(Math.floor(diff / 86400000)).padStart(3, '0');
+    cdH.textContent = String(Math.floor((diff % 86400000) / 3600000)).padStart(2, '0');
+    cdM.textContent = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+    cdS.textContent = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+
 document.addEventListener('DOMContentLoaded', function() {
   fetchAndRenderPLChart('/api/parlay/pl-over-time', 'plChart');
   fetchAndRenderWinRateChart('/api/parlay/win-rate-by-week', 'winRateChart');

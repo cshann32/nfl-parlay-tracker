@@ -1,9 +1,12 @@
+import calendar as _calendar
 import logging
 import time
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone, timedelta
 from flask import render_template
 from flask_login import login_required, current_user
 from app.blueprints.dashboard import dashboard_bp
+from app.extensions import db
 from app.services.parlay_service import get_analytics
 
 logger = logging.getLogger("nfl.dashboard")
@@ -86,6 +89,51 @@ def _fetch_rss(url: str, limit: int = 25) -> list[dict]:
     except Exception as exc:
         logger.warning("RSS fetch failed", extra={"url": url, "error": str(exc)})
         return cached[1] if cached else []
+
+
+def _next_season_kickoff() -> str:
+    """Return an ISO-8601 datetime string for the next NFL regular season kickoff.
+
+    NFL Kickoff Night is always the Thursday evening after Labor Day
+    (first Monday of September).  Game time: 8:20 PM ET (EDT = UTC-4).
+    """
+    from datetime import date
+    today = date.today()
+    kickoff_year = today.year if today.month < 9 else today.year + 1
+    # Find the first Monday of September
+    month_cal = _calendar.monthcalendar(kickoff_year, 9)
+    first_monday = next(w[_calendar.MONDAY] for w in month_cal if w[_calendar.MONDAY] != 0)
+    kickoff_thursday = first_monday + 3  # Thursday = Monday + 3
+    EDT = timezone(timedelta(hours=-4))
+    return datetime(kickoff_year, 9, kickoff_thursday, 20, 20, 0, tzinfo=EDT).isoformat()
+
+
+def _recent_odds(limit: int = 6):
+    """Return up to `limit` Odds records for the most recently completed games."""
+    from app.models.game import Game
+    from app.models.odds import Odds
+    from sqlalchemy import func
+    from sqlalchemy.orm import joinedload
+
+    # Pick one odds row per game (the earliest-inserted one)
+    first_odds_sq = (
+        db.session.query(func.min(Odds.id).label("odds_id"), Odds.game_id)
+        .group_by(Odds.game_id)
+        .subquery()
+    )
+    return (
+        db.session.query(Odds)
+        .join(first_odds_sq, Odds.id == first_odds_sq.c.odds_id)
+        .join(Game, Game.id == Odds.game_id)
+        .options(
+            joinedload(Odds.game).joinedload(Game.home_team),
+            joinedload(Odds.game).joinedload(Game.away_team),
+        )
+        .filter(Game.status.ilike("%final%"), Game.home_score.isnot(None))
+        .order_by(Game.game_date.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 SEA_TEAM_ID = 29  # Seattle Seahawks DB id
@@ -214,6 +262,11 @@ def index():
     # Fetch a handful of headlines for the dashboard news strip
     articles = _fetch_espn_json(limit=6)
 
+    # Offseason extras: closing lines from the DB + countdown to next kickoff
+    is_offseason = season_state["state"] == "offseason"
+    recent_odds = _recent_odds() if is_offseason else []
+    kickoff_iso = _next_season_kickoff()
+
     logger.info("Dashboard loaded", extra={"user_id": current_user.id,
                                            "season_state": season_state["state"]})
     return render_template(
@@ -227,6 +280,9 @@ def index():
         season_predictions=season_predictions,
         season_state=season_state,
         articles=articles,
+        recent_odds=recent_odds,
+        kickoff_iso=kickoff_iso,
+        is_offseason=is_offseason,
     )
 
 
