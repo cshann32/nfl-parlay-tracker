@@ -1,6 +1,6 @@
 # Beast Mode NFL Parlay Tracker
 
-A full-stack NFL analytics and parlay tracking web app built with Flask and PostgreSQL. Track your bets, analyze player and team data synced directly from ESPN, and explore live charts — all from your own database.
+A full-stack NFL analytics and parlay tracking web app — Seattle Seahawks themed. Track your bets, monitor live odds, analyze player and team stats, and let the app auto-settle your parlay legs after games. All data lives in your own PostgreSQL database.
 
 ---
 
@@ -8,35 +8,43 @@ A full-stack NFL analytics and parlay tracking web app built with Flask and Post
 
 ### Parlay Tracking
 - Log parlays with individual legs, odds, stake, and sportsbook
-- Win/loss/push tracking with automatic P&L calculation
-- Analytics dashboard: monthly P&L, ROI, win rate by sportsbook, leg count breakdown
+- Win/loss/push tracking with automatic P&L and ROI calculation
+- **Auto-settle** — completed game results automatically resolve pending legs (spread, moneyline, total)
+- Analytics: monthly P&L, win rate by week, ROI by sportsbook and leg count
 
-### NFL Data (ESPN-powered, free API)
-- **Teams** — all 32 NFL teams with logos, colors, conference/division
-- **Rosters** — full player roster with photos, positions, jersey numbers, and injury status
-- **Schedule & Scores** — game results, scores, and week-by-week schedule
-- **News** — latest NFL headlines with images
-- **Odds** — game odds synced from ESPN
+### Live Odds (The Odds API)
+- Sync live NFL spread, moneyline, and O/U lines from 8+ bookmakers
+- Lines auto-populate the parlay form when you select a game
+- 4-hour cooldown enforced to protect the free-plan 500-credit quota
+- Free plan: 3 credits per sync
+
+### NFL Data
+- **ESPN (free, no key required)** — teams, rosters, schedule, scores, news, game stats
+- **RapidAPI (optional)** — extended data: plays, boxscores, draft, historical stats
+- Sunday 11 PM ET auto-sync: scores → stats → rosters → odds → auto-settle
+
+### Dashboard
+- Seahawks KPIs, recent results, W-L record, win probability gauges
+- 12s Corner — Seahawks-only news section, shown first on the news page
+- NFL Headlines strip
+- Offseason countdown to kickoff night
 
 ### Reports & Charts
-Live dashboard charts built entirely from your local database:
 - Passing / Rushing / Receiving stat leaders
-- NFL Standings (W-L-T, PF, PA, home/away splits by division)
-- Team Performance deep-dive (weekly scoring chart, full game log)
-- Score & Totals Distribution (histogram + weekly trend — built for O/U research)
+- NFL Standings with division breakdowns
+- Team Performance deep-dives (weekly scoring, full game log)
+- Score & Totals Distribution (O/U research)
 - Head-to-Head matchup explorer
-- Player Research (week-by-week game log for prop betting)
-- ROI by parlay leg count
-
-### Players Page
-- Grouped by position (QB, RB, WR, TE, OL, DL, LB, DB, K/P)
-- Live search — filter by name or team abbreviation instantly
-- Position tab filters with per-group player counts
+- Player Research (week-by-week game log for prop bets)
+- Prop Analyzer and AI-powered predictions
 
 ### Admin Panel
-- Sync manager — run ESPN syncs on demand (teams, roster, schedule, news, odds)
-- DB Health monitor with table row counts
-- DB Audit tool — detects duplicate teams, players, games, odds, and news with one-click cleanup
+- **API Tester** — test NFL API and Odds API connections, try new keys before saving, replace keys live
+- **The Commissioner** — automated DB integrity tool: auto-fixes orphans, duplicates, stuck legs, season type labels, and parlay mismatches; flags issues that need human attention
+- **Settings** — configure every app setting from the browser: API keys, season year, log level, scheduler, upload limits, Commissioner thresholds
+- **Sync Manager** — run ESPN and RapidAPI syncs on demand per category
+- **DB Health** — table sizes, row counts, raw SQL runner
+- **Scheduler** — toggle auto-sync and weekly stats job on/off
 
 ---
 
@@ -44,19 +52,42 @@ Live dashboard charts built entirely from your local database:
 
 | Layer | Tech |
 |---|---|
-| Backend | Python 3.12, Flask 3, Flask-Login, Flask-Migrate |
-| Database | PostgreSQL + SQLAlchemy 2 |
-| Scheduling | APScheduler |
-| Sessions | Redis + Flask-Session |
-| Charts | Chart.js |
-| UI | Bootstrap 5, Bootstrap Icons |
-| Deployment | Docker + Gunicorn + Nginx |
+| Backend | Python 3.11, Flask 3, Flask-Login, Flask-Migrate, Flask-WTF |
+| Database | PostgreSQL 15 + SQLAlchemy 2 |
+| Sessions / Cache | Redis 7 + Flask-Session |
+| Scheduling | APScheduler (background + cron jobs) |
+| Charts | Chart.js 4 |
+| UI | Bootstrap 5.3, Bootstrap Icons, Bebas Neue + Barlow Condensed |
+| Proxy / SSL | Nginx (self-signed cert for LAN HTTPS) |
+| Deployment | Docker Compose + Gunicorn (gthread workers) |
 
 ---
 
-## Quick Start
+## Quick Start — Docker Hub (no source code needed)
 
-### 1. Clone & configure
+You can pull and run the app from Docker Hub on any machine with Docker.
+
+### What you need (3 files)
+
+```
+docker/compose.hub.yml   ← orchestrates all 4 containers
+docker/nginx.conf        ← Nginx reverse proxy config
+.env                     ← your API keys and secret
+```
+
+### 1. Get the files
+
+```bash
+mkdir nfl-parlay-tracker && cd nfl-parlay-tracker
+mkdir docker logs uploads
+
+# Download compose file
+curl -O https://raw.githubusercontent.com/cshann32/nfl-parlay-tracker/main/docker/compose.hub.yml -o docker/compose.hub.yml
+curl -O https://raw.githubusercontent.com/cshann32/nfl-parlay-tracker/main/docker/nginx.conf -o docker/nginx.conf
+curl -O https://raw.githubusercontent.com/cshann32/nfl-parlay-tracker/main/.env.example -o .env
+```
+
+Or just clone the repo and skip the build:
 
 ```bash
 git clone https://github.com/cshann32/nfl-parlay-tracker.git
@@ -64,88 +95,101 @@ cd nfl-parlay-tracker
 cp .env.example .env
 ```
 
-Open `.env` and set at minimum:
-```
+### 2. Configure `.env`
+
+At minimum set:
+```env
 SECRET_KEY=<any long random string>
-NFL_API_KEY=<your RapidAPI key — optional, ESPN syncs work without it>
+THE_ODDS_API_KEY=<your the-odds-api.com key>   # free plan works
+NFL_API_KEY=<your RapidAPI key>                # optional
 ```
-Everything else (database URL, Redis URL) is pre-configured to work with Docker out of the box.
+
+Everything else (DATABASE_URL, REDIS_URL) is pre-wired for Docker.
+
+### 3. Run
+
+```bash
+docker-compose -f docker/compose.hub.yml up -d
+```
+
+App is live at **http://localhost:8080**
+
+### 4. First-time setup
+
+```bash
+# Create admin user
+docker exec -it nfl-parlay-tracker-app-1 flask seed-admin
+
+# Seed default settings
+docker exec -it nfl-parlay-tracker-app-1 flask create-settings
+```
+
+Then log in and go to **Admin → Sync** and run in order:
+1. `espn_teams` — all 32 teams
+2. `espn_roster` — current rosters
+3. `espn_schedule` — full schedule (2024, 2025, 2026)
+4. `the_odds_api` — live lines (costs 3 credits)
+5. `game_stats` — per-game player stats
+
+All ESPN syncs are **free**. The Odds API sync costs 3 credits per run (500/month free).
 
 ---
 
-### 2. Run with Docker (recommended)
-
-#### Production mode — Gunicorn + Nginx on port 80
+## Quick Start — Build from Source
 
 ```bash
-docker-compose up --build -d
+git clone https://github.com/cshann32/nfl-parlay-tracker.git
+cd nfl-parlay-tracker
+cp .env.example .env          # configure your keys
+docker-compose up --build -d  # builds image + starts all 4 containers
 ```
 
-The app is available at **http://localhost**
-
-#### Development mode — Flask hot-reload on port 5000
-
-```bash
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-The app is available at **http://localhost:5000** — file edits reflect immediately without rebuilding.
-
-#### Useful commands
-
-```bash
-# View logs
-docker-compose logs -f app
-
-# Stop everything
-docker-compose down
-
-# Stop and wipe the database volume (full reset)
-docker-compose down -v
-
-# Open a shell inside the app container
-docker-compose exec app sh
-
-# Run a Flask CLI command
-docker-compose exec app flask db upgrade
-```
-
----
-
-### 3. Run locally (without Docker)
-
-```bash
-# Requires: PostgreSQL + Redis running locally
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-flask db upgrade          # run migrations
-python run.py             # dev server → http://localhost:5000
-```
-
----
-
-### 4. Populate data
-
-Log in, then go to **Admin → Sync** and run these in order:
-1. `espn_teams` — all 32 NFL teams with logos and colors
-2. `espn_roster` — full rosters with player photos and positions
-3. `espn_schedule` — game schedule and final scores
-4. `espn_news` — latest NFL headlines
-5. `espn_odds` — current game odds
-
-All ESPN syncs are **free** — no API key required.
+App is live at **http://localhost:8081** (or **https://localhost:8443** if SSL is configured)
 
 ---
 
 ## Environment Variables
 
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `SECRET_KEY` | Flask session secret |
-| `REDIS_URL` | Redis connection string |
-| `RAPIDAPI_KEY` | Optional — RapidAPI key for extended NFL data |
+| Variable | Required | Description |
+|---|---|---|
+| `SECRET_KEY` | ✓ | Flask session secret — set to any long random string |
+| `THE_ODDS_API_KEY` | Recommended | the-odds-api.com key for live odds (free: 500 credits/month) |
+| `NFL_API_KEY` | Optional | RapidAPI key for extended stats (plays, boxscores, draft) |
+| `DATABASE_URL` | Auto | Pre-set for Docker — `postgresql://nfl:nflpassword@db:5432/nfl_tracker` |
+| `REDIS_URL` | Auto | Pre-set for Docker — `redis://redis:6379/0` |
+| `SESSION_COOKIE_SECURE` | Auto | Set `false` for plain HTTP, `true` for HTTPS |
+| `LOG_LEVEL` | Optional | `DEBUG` / `INFO` / `WARNING` (default: `INFO`) |
+
+All settings can also be changed at runtime from **Admin → Settings** — no restart required.
+
+---
+
+## What's in the Image vs. What Isn't
+
+**Included in the Docker image:**
+- All application code, templates, and static assets
+- Python dependencies
+- Database migrations
+
+**NOT included (you provide these):**
+- The database data — starts empty, populate via Admin → Sync
+- Your `.env` file (API keys, secret key)
+- SSL certificates (auto-generated if you run the setup script)
+- Uploaded documents
+
+The database volume persists across container restarts. To fully reset: `docker-compose down -v`
+
+---
+
+## CLI Commands
+
+```bash
+flask seed-admin          # create initial admin user
+flask create-settings     # seed default app settings
+flask commissioner        # run full DB integrity audit + auto-fix
+flask db upgrade          # apply database migrations
+flask sync-nfl -c teams   # sync a specific category
+```
 
 ---
 
@@ -154,19 +198,24 @@ All ESPN syncs are **free** — no API key required.
 ```
 app/
 ├── blueprints/
-│   ├── admin/        # Admin panel, sync management, DB audit
-│   ├── api/          # JSON API endpoints for all charts
+│   ├── admin/        # Admin panel: sync, settings, commissioner, api-tester
+│   ├── api/          # JSON endpoints for all charts and AJAX
 │   ├── auth/         # Login, register, profile
-│   ├── dashboard/    # Main dashboard + news feed
-│   ├── parlays/      # Parlay CRUD and analytics
-│   ├── reports/      # Report pages (standings, team perf, etc.)
-│   └── stats/        # Players, teams, leaders, prop analyzer
+│   ├── dashboard/    # Main dashboard + news
+│   ├── parlays/      # Parlay CRUD, auto-settle
+│   ├── reports/      # Stat leaders, standings, matchups, player research
+│   └── stats/        # Players, teams, prop analyzer, predictions
 ├── models/           # SQLAlchemy models
 ├── services/
-│   ├── sync/         # ESPN sync modules
-│   └── stats_service.py, parlay_service.py, ...
-├── templates/        # Jinja2 HTML templates
-└── static/           # CSS, JS, images
-migrations/           # Alembic DB migrations
-scripts/              # Data seeding scripts
+│   ├── sync/         # ESPN + RapidAPI + The Odds API sync modules
+│   ├── commissioner.py   # DB integrity and auto-fix engine
+│   ├── parlay_service.py # Parlay CRUD + auto-settle logic
+│   └── the_odds_api.py   # Odds API client + game matching
+├── templates/        # Jinja2 HTML templates (Seahawks Beast Mode theme)
+└── static/           # CSS, JS, team logos, images
+docker/
+├── compose.hub.yml   # Pull-and-run compose (no source needed)
+├── nginx.conf        # Nginx reverse proxy + SSL
+└── ssl/              # Self-signed certificates (LAN HTTPS)
+migrations/           # Alembic database migrations
 ```
