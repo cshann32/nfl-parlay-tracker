@@ -207,26 +207,127 @@
 <div class="news-masthead">
   <div class="news-masthead-title">NFL <span>NEWS</span></div>
   <div class="d-flex align-items-center gap-3">
-    {% if source == 'rss' %}
     <div style="display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border-radius:20px;
                 background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);">
       <span class="live-dot"></span>
       <span style="font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#f87171;">Live</span>
-      <span style="font-size:.65rem;color:rgba(255,255,255,.3);letter-spacing:.04em;">ESPN RSS</span>
+      <span style="font-size:.65rem;color:rgba(255,255,255,.3);letter-spacing:.04em;">ESPN</span>
     </div>
-    {% else %}
-    <div style="display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .9rem;border-radius:20px;
-                background:rgba(105,190,40,.08);border:1px solid rgba(105,190,40,.2);">
-      <i class="bi bi-database-fill" style="font-size:.65rem;color:#69BE28;"></i>
-      <span style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#69BE28;">Synced</span>
-    </div>
-    <a href="{{ url_for('admin.sync') }}"
-       style="font-size:.72rem;color:rgba(255,255,255,.3);text-decoration:none;"
-       class="d-inline-flex align-items-center gap-1">
-      <i class="bi bi-arrow-repeat"></i> refresh
-    </a>
-    {% endif %}
   </div>
+</div>
+
+{# ── 12s CORNER (Seahawks first) ── #}
+{% if seahawks %}
+<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;">
+  <img src="{{ url_for('static', filename='img/seahawks_logo.png') }}"
+       alt="SEA" style="width:32px;height:32px;object-fit:contain;">
+  <div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:.08em;color:#fff;line-height:1;">
+      12s CORNER
+    </div>
+    <div style="font-size:.62rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;">
+      Seattle Seahawks · Latest Updates
+    </div>
+  </div>
+  <div class="ms-auto d-flex align-items-center gap-2">
+    <span class="live-dot"></span>
+    <span style="font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#f87171;">Live</span>
+    <span style="font-size:.62rem;color:rgba(255,255,255,.25);">ESPN</span>
+  </div>
+</div>
+
+{% set sea_top = seahawks[0] %}
+<a href="{{ sea_top.link }}" target="_blank" rel="noopener noreferrer"
+   class="news-hero mb-4" style="min-height:320px;border:1px solid rgba(105,190,40,.2);">
+  {% if sea_top.thumbnail %}
+  <div class="news-hero-bg" style="background-image:url('{{ sea_top.thumbnail }}');"></div>
+  {% else %}
+  <div class="news-hero-bg" style="background:linear-gradient(135deg,#001836 0%,#002244 55%,#001a0a 100%);"></div>
+  {% endif %}
+  <div class="news-hero-shade"></div>
+  <div class="news-hero-body">
+    <div class="news-hero-label" style="background:#002244;color:#69BE28;border:1px solid rgba(105,190,40,.4);">
+      <img src="{{ url_for('static', filename='img/seahawks_logo.png') }}"
+           alt="" style="width:12px;height:12px;object-fit:contain;">
+      Seahawks
+    </div>
+    <div class="news-hero-hl" style="font-size:clamp(1.3rem,2.8vw,2.1rem);">{{ sea_top.title }}</div>
+    {% if sea_top.description %}
+    <div class="news-hero-desc">{{ sea_top.description | striptags }}</div>
+    {% endif %}
+    <div class="news-hero-meta">
+      {% if sea_top.published_at and sea_top.published_at is not string %}
+      <span style="color:rgba(255,255,255,.38);">{{ sea_top.published_at.strftime('%b %-d, %Y') }}</span>
+      {% endif %}
+      <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .75rem;border-radius:6px;
+                   background:rgba(105,190,40,.18);border:1px solid rgba(105,190,40,.35);
+                   color:#69BE28;font-weight:700;letter-spacing:.06em;font-size:.72rem;">
+        Read story <i class="bi bi-arrow-right"></i>
+      </span>
+    </div>
+  </div>
+</a>
+
+{% set sea_grid = seahawks[1:4] %}
+{% if sea_grid %}
+<div class="row g-3 mb-4">
+  {% for a in sea_grid %}
+  <div class="col-12 col-md-4">
+    <a href="{{ a.link }}" target="_blank" rel="noopener noreferrer"
+       class="news-grid-card" style="border-color:rgba(105,190,40,.12);">
+      <div class="news-grid-img">
+        {% if a.thumbnail %}<img src="{{ a.thumbnail }}" alt="">
+        {% else %}
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,34,68,.5);">
+          <img src="{{ url_for('static', filename='img/seahawks_logo.png') }}"
+               alt="" style="width:48px;height:48px;object-fit:contain;opacity:.25;">
+        </div>
+        {% endif %}
+      </div>
+      <div class="news-grid-body">
+        <div class="news-grid-hl">{{ a.title }}</div>
+        <div style="font-size:.65rem;color:rgba(255,255,255,.25);margin-top:.25rem;">
+          {% if a.published_at and a.published_at is not string %}{{ a.published_at.strftime('%b %-d, %Y') }}{% endif %}
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% set sea_feed = seahawks[4:] %}
+{% if sea_feed %}
+<div class="rounded-3 overflow-hidden mb-5" style="background:#0d1620;border:1px solid rgba(105,190,40,.12);">
+  {% for a in sea_feed %}
+  <a href="{{ a.link }}" target="_blank" rel="noopener noreferrer" class="news-feed-item"
+     style="border-bottom-color:rgba(105,190,40,.08);">
+    <div class="news-feed-num" style="color:rgba(105,190,40,.15);">{{ loop.index + 4 }}</div>
+    <div class="news-feed-thumb flex-shrink-0">
+      {% if a.thumbnail %}<img src="{{ a.thumbnail }}" alt="">
+      {% else %}
+      <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,34,68,.4);">
+        <img src="{{ url_for('static', filename='img/seahawks_logo.png') }}"
+             alt="" style="width:28px;height:28px;object-fit:contain;opacity:.3;">
+      </div>
+      {% endif %}
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div class="nfi-title">{{ a.title }}</div>
+      <div class="nfi-meta">
+        {% if a.published_at and a.published_at is not string %}{{ a.published_at.strftime('%b %-d, %Y') }}{% endif %}
+      </div>
+    </div>
+    <i class="bi bi-arrow-up-right flex-shrink-0 ms-2" style="color:rgba(105,190,40,.2);font-size:.75rem;margin-top:.15rem;"></i>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+{# ── NFL NEWS divider ── #}
+<div class="news-masthead" style="margin-top:1rem;">
+  <div class="news-masthead-title">AROUND THE <span>LEAGUE</span></div>
 </div>
 
 {% if not articles %}
@@ -320,7 +421,7 @@
   <div class="sh-line"></div>
 </div>
 
-<div class="rounded-3 overflow-hidden" style="background:#111820;border:1px solid rgba(255,255,255,.07);">
+<div class="rounded-3 overflow-hidden mb-5" style="background:#111820;border:1px solid rgba(255,255,255,.07);">
   {% for a in feed %}
   {% set n = loop.index + 4 %}
   <a href="{{ a.link }}" target="_blank" rel="noopener noreferrer" class="news-feed-item">

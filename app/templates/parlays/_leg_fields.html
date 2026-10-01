@@ -1,5 +1,3 @@
-{% set l = leg %}
-{% set i = idx %}
 <div class="d-flex align-items-center justify-content-between mb-1">
   <span class="leg-num">LEG {{ i + 1 }}</span>
   <button type="button" class="btn btn-sm"
@@ -30,7 +28,8 @@
   </div>
   <div class="col-3 col-sm-2">
     <div class="pf-label">Game</div>
-    <select name="legs[{{ i }}][game_id]" class="form-select pf-input form-select-sm">
+    <select name="legs[{{ i }}][game_id]" class="form-select pf-input form-select-sm"
+            onchange="onGameChange(this, {{ i }})">
       <option value="">—</option>
       {% for g in games %}
       <option value="{{ g.id }}" {{ 'selected' if l and l.game_id == g.id }}>
@@ -40,6 +39,7 @@
     </select>
   </div>
 </div>
+<div class="odds-hint" id="oddsHint_{{ i }}" style="display:none;"></div>
 
 {# Player row — shown when type is player_prop #}
 <div class="player-prop-row mt-1" id="playerRow_{{ i }}"

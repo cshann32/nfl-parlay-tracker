@@ -103,6 +103,11 @@ def set_leg_result(leg_id):
     return redirect(request.referrer or url_for("parlays.index"))
 
 
+def _int_or_none(v: str) -> int | None:
+    s = (v or "").strip()
+    return int(s) if s else None
+
+
 def _parse_parlay_form(form) -> dict:
     legs = []
     i = 0
@@ -110,10 +115,10 @@ def _parse_parlay_form(form) -> dict:
         legs.append({
             "pick": form.get(f"legs[{i}][pick]"),
             "leg_type": form.get(f"legs[{i}][leg_type]"),
-            "odds": int(form.get(f"legs[{i}][odds]", 0)) or None,
-            "game_id": int(form.get(f"legs[{i}][game_id]", 0)) or None,
-            "player_id": int(form.get(f"legs[{i}][player_id]", 0)) or None,
-            "team_id": int(form.get(f"legs[{i}][team_id]", 0)) or None,
+            "odds": _int_or_none(form.get(f"legs[{i}][odds]")),
+            "game_id": _int_or_none(form.get(f"legs[{i}][game_id]")),
+            "player_id": _int_or_none(form.get(f"legs[{i}][player_id]")),
+            "team_id": _int_or_none(form.get(f"legs[{i}][team_id]")),
             "description": form.get(f"legs[{i}][description]"),
         })
         i += 1

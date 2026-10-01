@@ -121,6 +121,39 @@
 }
 .player-suggest-row:hover { background: rgba(105,190,40,.08); }
 .player-suggest-row:last-child { border-bottom: none; }
+
+/* Live odds hint chips */
+.odds-hint {
+  margin-top: .35rem;
+  padding: .35rem .5rem;
+  background: rgba(105,190,40,.04);
+  border: 1px solid rgba(105,190,40,.15);
+  border-radius: 6px;
+}
+.odds-hint-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--sea-grey);
+  margin-bottom: .3rem;
+}
+.odds-chips { display: flex; flex-wrap: wrap; gap: .25rem; }
+.odds-chip {
+  display: inline-block;
+  padding: .15rem .45rem;
+  background: rgba(0,34,68,.6);
+  border: 1px solid rgba(105,190,40,.3);
+  border-radius: 4px;
+  color: #69BE28;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: .72rem;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: background .12s;
+}
+.odds-chip:hover { background: rgba(105,190,40,.18); }
 </style>
 
 <div class="d-flex align-items-center gap-2 mb-3">
@@ -269,12 +302,14 @@ function legHtml(idx) {
     </div>
     <div class="col-3 col-sm-2">
       <div class="pf-label">Game</div>
-      <select name="legs[${idx}][game_id]" class="form-select pf-input form-select-sm">
+      <select name="legs[${idx}][game_id]" class="form-select pf-input form-select-sm"
+              onchange="onGameChange(this, ${idx})">
         <option value="">—</option>
         ${gameOptions}
       </select>
     </div>
   </div>
+  <div class="odds-hint" id="oddsHint_${idx}" style="display:none;"></div>
   <div class="player-prop-row mt-1" id="playerRow_${idx}" style="display:none;">
     <div class="pf-label mt-1">Player</div>
     <div class="position-relative">
@@ -308,6 +343,58 @@ function addLeg() {
 function onTypeChange(sel, idx) {
   const row = document.getElementById(`playerRow_${idx}`);
   if (row) row.style.display = sel.value === 'player_prop' ? '' : 'none';
+}
+
+function onGameChange(sel, idx) {
+  const gameId = sel.value;
+  const hint = document.getElementById(`oddsHint_${idx}`);
+  if (!hint) return;
+  if (!gameId) { hint.style.display = 'none'; return; }
+
+  fetch(`/api/odds/suggestions?game_id=${gameId}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.found) { hint.style.display = 'none'; return; }
+
+      const h = data.home, a = data.away;
+      let chips = '';
+
+      if (h.spread_fmt !== null && h.spread_fmt !== undefined) {
+        const hOdds = h.spread_odds >= 0 ? `+${h.spread_odds}` : h.spread_odds;
+        const aOdds = a.spread_odds >= 0 ? `+${a.spread_odds}` : a.spread_odds;
+        chips += chip(`${h.abbr} ${h.spread_fmt} (${hOdds})`, idx, `${h.abbr} ${h.spread_fmt}`, 'spread', h.spread_odds);
+        chips += chip(`${a.abbr} ${a.spread_fmt} (${aOdds})`, idx, `${a.abbr} ${a.spread_fmt}`, 'spread', a.spread_odds);
+      }
+      if (h.moneyline !== null && h.moneyline !== undefined) {
+        const hML = h.moneyline >= 0 ? `+${h.moneyline}` : h.moneyline;
+        const aML = a.moneyline >= 0 ? `+${a.moneyline}` : a.moneyline;
+        chips += chip(`${h.abbr} ML ${hML}`, idx, `${h.abbr} ML`, 'moneyline', h.moneyline);
+        chips += chip(`${a.abbr} ML ${aML}`, idx, `${a.abbr} ML`, 'moneyline', a.moneyline);
+      }
+      if (data.total !== null && data.total !== undefined) {
+        const oOdds = data.over_odds >= 0 ? `+${data.over_odds}` : data.over_odds;
+        const uOdds = data.under_odds >= 0 ? `+${data.under_odds}` : data.under_odds;
+        chips += chip(`O ${data.total} (${oOdds})`, idx, `Over ${data.total}`, 'total', data.over_odds);
+        chips += chip(`U ${data.total} (${uOdds})`, idx, `Under ${data.total}`, 'total', data.under_odds);
+      }
+
+      hint.innerHTML = `<div class="odds-hint-label">Live Lines <span style="font-weight:400;color:var(--sea-grey);font-size:.6rem;">${data.source}</span></div><div class="odds-chips">${chips}</div>`;
+      hint.style.display = '';
+    })
+    .catch(() => { if (hint) hint.style.display = 'none'; });
+}
+
+function chip(label, idx, pick, type, odds) {
+  return `<span class="odds-chip" onclick="applyOdds(${idx},${JSON.stringify(pick)},${JSON.stringify(type)},${odds})">${label}</span>`;
+}
+
+function applyOdds(idx, pick, type, odds) {
+  const pickEl  = document.querySelector(`[name="legs[${idx}][pick]"]`);
+  const oddsEl  = document.querySelector(`[name="legs[${idx}][odds]"]`);
+  const typeEl  = document.querySelector(`[name="legs[${idx}][leg_type]"]`);
+  if (pickEl)  pickEl.value  = pick;
+  if (oddsEl)  oddsEl.value  = odds;
+  if (typeEl)  { typeEl.value = type; onTypeChange(typeEl, idx); }
 }
 
 let searchTimers = {};

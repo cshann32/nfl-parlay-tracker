@@ -154,6 +154,42 @@ def sync_nfl(category, season, week, verbose):
 
 
 # ---------------------------------------------------------------------------
+# commissioner
+# ---------------------------------------------------------------------------
+@app.cli.command('commissioner')
+def commissioner_cmd():
+    """Run The Commissioner — auto-fix safe issues, flag what needs human attention."""
+    from app.services.commissioner import run_commissioner
+
+    with app.app_context():
+        run = run_commissioner(triggered_by='cli')
+
+        for r in run['results']:
+            if r['status'] == 'fixed':
+                icon, fg = '✓', 'green'
+                note = f"fixed {r['fixed']} rows"
+            elif r['status'] == 'clean':
+                icon, fg = '✓', 'green'
+                note = 'clean'
+            elif r['status'] == 'warning':
+                icon, fg = '⚠', 'yellow'
+                note = r.get('human_action', f"{r['found']} issue(s)")
+            else:
+                icon, fg = '✗', 'red'
+                note = r.get('fix_error') or r.get('human_action', f"{r['found']} issue(s)")
+            click.secho(f'  {icon}  {r["name"]:<38} {note}', fg=fg)
+
+        click.echo()
+        click.secho(
+            f'Fixed: {run["total_fixed"]} rows  '
+            f'Warnings: {run["warnings"]}  '
+            f'Errors: {run["errors"]}  '
+            f'({run["duration_s"]}s)',
+            fg='red' if run['errors'] else ('yellow' if run['warnings'] else 'green'),
+        )
+
+
+# ---------------------------------------------------------------------------
 # db-health
 # ---------------------------------------------------------------------------
 @app.cli.command('db-health')

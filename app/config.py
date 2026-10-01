@@ -37,6 +37,9 @@ class BaseConfig:
     ALLOWED_EXTENSIONS: set = {"pdf", "csv", "xlsx", "xls", "png", "jpg", "jpeg",
                                 "gif", "tiff", "bmp", "json", "xml"}
 
+    # ── The Odds API ─────────────────────────────────────────────────────────
+    THE_ODDS_API_KEY: str = os.environ.get("THE_ODDS_API_KEY", "")
+
     # ── NFL API ───────────────────────────────────────────────────────────────
     NFL_API_KEY: str = os.environ.get("NFL_API_KEY", "")
     NFL_API_HOST_PRIMARY: str = os.environ.get(
@@ -72,7 +75,7 @@ class DevelopmentConfig(BaseConfig):
 class ProductionConfig(BaseConfig):
     DEBUG = False
     LOG_LEVEL = "INFO"
-    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "true").lower() == "true"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
 

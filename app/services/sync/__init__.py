@@ -38,16 +38,17 @@ SYNC_ORDER = [
 
 
 def _get_client(app: Flask) -> NFLApiClient:
+    from app.models.app_setting import AppSetting
     return NFLApiClient(
-        api_key=app.config["NFL_API_KEY"],
-        primary_host=app.config["NFL_API_HOST_PRIMARY"],
-        fallback_host=app.config["NFL_API_HOST_FALLBACK"],
-        timeout=app.config["NFL_API_TIMEOUT"],
-        max_retries=app.config["NFL_API_RETRY_COUNT"],
+        api_key=AppSetting.get("nfl_api_key") or app.config["NFL_API_KEY"],
+        primary_host=AppSetting.get("nfl_api_host_primary") or app.config["NFL_API_HOST_PRIMARY"],
+        fallback_host=AppSetting.get("nfl_api_host_fallback") or app.config["NFL_API_HOST_FALLBACK"],
+        timeout=int(AppSetting.get("nfl_api_timeout") or app.config["NFL_API_TIMEOUT"]),
+        max_retries=int(AppSetting.get("nfl_api_retry_count") or app.config["NFL_API_RETRY_COUNT"]),
     )
 
 
-# Categories that use their own HTTP client (ESPN free API) — no NFL_API_KEY required
+# Categories that use their own HTTP client — no NFL_API_KEY required
 _ESPN_ONLY_CATEGORIES = {
     "game_stats",
     "espn_odds",
@@ -55,6 +56,7 @@ _ESPN_ONLY_CATEGORIES = {
     "espn_roster",
     "espn_schedule",
     "espn_news",
+    "the_odds_api",
 }
 
 
@@ -116,6 +118,22 @@ def run_sync(category: str, app: Flask, triggered_by: str = "manual") -> SyncLog
         return log
 
 
+def run_weekly_stats_sync(app: Flask, triggered_by: str = "weekly_scheduler") -> None:
+    """Sunday 11 PM ET job: scores → stats → roster → odds → auto-settle."""
+    for category in ["espn_schedule", "game_stats", "espn_roster", "the_odds_api"]:
+        try:
+            run_sync(category, app, triggered_by=triggered_by)
+        except Exception as exc:
+            logger.error("Weekly sync failed for %s: %s", category, exc)
+    with app.app_context():
+        from app.services.parlay_service import auto_settle_all_pending
+        try:
+            settled = auto_settle_all_pending()
+            logger.info("Weekly auto-settle: %d legs settled", settled)
+        except Exception as exc:
+            logger.error("Auto-settle failed: %s", exc)
+
+
 def run_full_sync(app: Flask, triggered_by: str = "scheduler") -> list[SyncLog]:
     """Run all sync categories in dependency order."""
     logs = []
@@ -155,6 +173,7 @@ def _dispatch(category: str, client: NFLApiClient, app: Flask) -> tuple[int, int
     from .espn_roster_sync import sync_espn_roster
     from .espn_schedule_sync import sync_espn_schedule
     from .espn_news_sync import sync_espn_news
+    from .the_odds_api_sync import sync_the_odds_api
 
     dispatch: dict[str, Callable] = {
         # ── Paid RapidAPI syncs ──
@@ -177,6 +196,9 @@ def _dispatch(category: str, client: NFLApiClient, app: Flask) -> tuple[int, int
         "espn_roster":   lambda: sync_espn_roster(client),
         "espn_schedule": lambda: sync_espn_schedule(client),
         "espn_news":     lambda: sync_espn_news(client),
+        "the_odds_api":  lambda: sync_the_odds_api(
+            AppSetting.get("the_odds_api_key") or app.config.get("THE_ODDS_API_KEY", "")
+        ),
     }
 
     if category not in dispatch:

@@ -83,6 +83,27 @@
       <div class="an-desc">Application &amp; error logs</div>
     </a>
   </div>
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('admin.commissioner') }}" class="admin-nav-card text-decoration-none d-block">
+      <div class="an-icon" style="color:#69BE28;"><i class="bi bi-shield-fill-check"></i></div>
+      <div class="an-title">The Commissioner</div>
+      <div class="an-desc">DB integrity, health checks &amp; fixes</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('admin.settings') }}" class="admin-nav-card text-decoration-none d-block">
+      <div class="an-icon" style="color:#94a3b8;"><i class="bi bi-sliders"></i></div>
+      <div class="an-title">Settings</div>
+      <div class="an-desc">API keys, season, scheduler &amp; thresholds</div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="{{ url_for('admin.api_tester') }}" class="admin-nav-card text-decoration-none d-block">
+      <div class="an-icon" style="color:#34d399;"><i class="bi bi-plug-fill"></i></div>
+      <div class="an-title">API Tester</div>
+      <div class="an-desc">Test connections, try &amp; swap keys live</div>
+    </a>
+  </div>
 </div>
 
 {# ── Recent syncs ── #}

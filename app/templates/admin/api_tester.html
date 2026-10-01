@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}API Tester — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<style>
+.at-card { background:#111820;border:1px solid rgba(255,255,255,.08);border-radius:10px;margin-bottom:1.25rem;overflow:hidden; }
+.at-head { display:flex;align-items:center;gap:.75rem;padding:.8rem 1.1rem;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.15); }
+.at-icon { font-size:1.1rem;width:1.5rem;text-align:center; }
+.at-title { font-family:'Bebas Neue',sans-serif;font-size:1.05rem;letter-spacing:.08em;color:#fff;flex:1; }
+.at-status { font-size:.72rem;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;padding:.2rem .6rem;border-radius:4px; }
+.st-ok  { background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.25);color:#4ade80; }
+.st-bad { background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.25);color:#f87171; }
+
+.at-body { padding:1.1rem; }
+.at-section { margin-bottom:1.2rem; }
+.at-section:last-child { margin-bottom:0; }
+.at-label { font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:.5rem; }
+
+/* Result panel */
+.at-result {
+  margin-top:.6rem;padding:.6rem .85rem;border-radius:7px;
+  font-family:'Barlow Condensed',sans-serif;font-size:.82rem;letter-spacing:.03em;
+  display:none;
+}
+.at-result.ok   { background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);color:#4ade80; }
+.at-result.fail { background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:#f87171; }
+
+.at-meta { display:flex;gap:1rem;flex-wrap:wrap;margin-top:.3rem; }
+.at-meta span { font-size:.72rem;color:rgba(255,255,255,.4); }
+.at-meta strong { color:rgba(255,255,255,.7); }
+
+/* Input */
+.at-input {
+  background:rgba(0,34,68,.5)!important;border:1px solid rgba(105,190,40,.2)!important;
+  color:#fff!important;border-radius:6px!important;font-size:.83rem;
+}
+.at-input:focus { border-color:#69BE28!important;box-shadow:0 0 0 2px rgba(105,190,40,.1)!important;outline:none; }
+.at-input::placeholder { color:rgba(255,255,255,.2)!important; }
+
+/* Buttons */
+.btn-test {
+  background:rgba(105,190,40,.12);border:1px solid rgba(105,190,40,.3);color:#69BE28;
+  font-size:.75rem;font-weight:700;letter-spacing:.06em;padding:.35rem .85rem;
+  border-radius:6px;cursor:pointer;white-space:nowrap;transition:background .12s;
+}
+.btn-test:hover { background:rgba(105,190,40,.22); }
+.btn-test:disabled { opacity:.4;cursor:default; }
+
+.btn-save {
+  background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);color:#4ade80;
+  font-size:.75rem;font-weight:700;letter-spacing:.06em;padding:.35rem .85rem;
+  border-radius:6px;cursor:pointer;white-space:nowrap;transition:background .12s;display:none;
+}
+.btn-save:hover { background:rgba(74,222,128,.2); }
+
+.btn-espn {
+  background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);color:#fbbf24;
+  font-size:.72rem;font-weight:700;letter-spacing:.06em;padding:.3rem .75rem;
+  border-radius:6px;cursor:pointer;white-space:nowrap;transition:background .12s;
+}
+.btn-espn:hover { background:rgba(251,191,36,.15); }
+
+.spinner { display:inline-block;width:.8rem;height:.8rem;border:2px solid rgba(105,190,40,.3);border-top-color:#69BE28;border-radius:50%;animation:spin .6s linear infinite;margin-right:.4rem;vertical-align:middle; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.divider { border-top:1px solid rgba(255,255,255,.06);margin:1rem 0; }
+</style>
+
+<div class="d-flex align-items-center gap-2 mb-4">
+  <i class="bi bi-plug-fill" style="font-size:1.3rem;color:#69BE28;"></i>
+  <h4 class="fw-bold mb-0">API Tester</h4>
+  <span class="ms-2" style="font-size:.7rem;color:rgba(255,255,255,.3);font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;">
+    Test connections · Try new keys · Replace active keys
+  </span>
+</div>
+
+{# ── NFL API ── #}
+<div class="at-card">
+  <div class="at-head">
+    <span class="at-icon" style="color:#60a5fa;"><i class="bi bi-key-fill"></i></span>
+    <span class="at-title">NFL API (RapidAPI)</span>
+    {% if nfl_key_masked %}
+      <span class="at-status st-ok"><i class="bi bi-check-circle me-1"></i>Configured — {{ nfl_key_masked }}</span>
+    {% else %}
+      <span class="at-status st-bad"><i class="bi bi-x-circle me-1"></i>Not configured</span>
+    {% endif %}
+  </div>
+  <div class="at-body">
+
+    <div class="at-section">
+      <div class="at-label">Test current key</div>
+      <div class="d-flex gap-2 align-items-center">
+        <button class="btn-test" onclick="runTest('nfl','current','nfl_current_result')">
+          <i class="bi bi-lightning-fill me-1"></i>Test Connection
+        </button>
+        <span style="font-size:.72rem;color:rgba(255,255,255,.25);">Hits /teams endpoint · costs 0 sync credits</span>
+      </div>
+      <div class="at-result" id="nfl_current_result"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="at-section">
+      <div class="at-label">Try a new key (test before saving)</div>
+      <div class="d-flex gap-2">
+        <input type="text" id="nfl_new_key" class="form-control at-input"
+               placeholder="Paste new RapidAPI key here" autocomplete="off">
+        <button class="btn-test" onclick="runTest('nfl','new','nfl_new_result')">
+          <i class="bi bi-send me-1"></i>Test
+        </button>
+      </div>
+      <div class="at-result" id="nfl_new_result"></div>
+      <form method="POST" action="{{ url_for('admin.api_tester_save_key', provider='nfl') }}" id="nfl_save_form">
+        <input type="hidden" name="key" id="nfl_save_key">
+        <button type="submit" class="btn-save mt-2" id="nfl_save_btn">
+          <i class="bi bi-check2-circle me-1"></i>Save as Active Key
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── The Odds API ── #}
+<div class="at-card">
+  <div class="at-head">
+    <span class="at-icon" style="color:#a78bfa;"><i class="bi bi-graph-up-arrow"></i></span>
+    <span class="at-title">The Odds API</span>
+    {% if odds_key_masked %}
+      <span class="at-status st-ok"><i class="bi bi-check-circle me-1"></i>Configured — {{ odds_key_masked }}</span>
+    {% else %}
+      <span class="at-status st-bad"><i class="bi bi-x-circle me-1"></i>Not configured</span>
+    {% endif %}
+  </div>
+  <div class="at-body">
+
+    <div class="at-section">
+      <div class="at-label">Test current key</div>
+      <div class="d-flex gap-2 align-items-center">
+        <button class="btn-test" onclick="runTest('odds','current','odds_current_result')">
+          <i class="bi bi-lightning-fill me-1"></i>Test Connection
+        </button>
+        <span style="font-size:.72rem;color:rgba(255,255,255,.25);">Hits /sports endpoint · costs 0 credits</span>
+      </div>
+      <div class="at-result" id="odds_current_result"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="at-section">
+      <div class="at-label">Try a new key (test before saving)</div>
+      <div class="d-flex gap-2">
+        <input type="text" id="odds_new_key" class="form-control at-input"
+               placeholder="Paste new Odds API key here" autocomplete="off">
+        <button class="btn-test" onclick="runTest('odds','new','odds_new_result')">
+          <i class="bi bi-send me-1"></i>Test
+        </button>
+      </div>
+      <div class="at-result" id="odds_new_result"></div>
+      <form method="POST" action="{{ url_for('admin.api_tester_save_key', provider='odds') }}" id="odds_save_form">
+        <input type="hidden" name="key" id="odds_save_key">
+        <button type="submit" class="btn-save mt-2" id="odds_save_btn">
+          <i class="bi bi-check2-circle me-1"></i>Save as Active Key
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── ESPN Free APIs ── #}
+<div class="at-card">
+  <div class="at-head">
+    <span class="at-icon" style="color:#fbbf24;"><i class="bi bi-wifi"></i></span>
+    <span class="at-title">ESPN Free APIs</span>
+    <span class="at-status st-ok"><i class="bi bi-unlock me-1"></i>No key required</span>
+  </div>
+  <div class="at-body">
+    <div class="at-label">Test individual endpoints</div>
+    <div class="d-flex flex-wrap gap-2 mb-2">
+      <button class="btn-espn" onclick="runEspn('scoreboard','espn_result')">
+        <i class="bi bi-calendar-week me-1"></i>Scoreboard
+      </button>
+      <button class="btn-espn" onclick="runEspn('summary','espn_result')">
+        <i class="bi bi-bar-chart me-1"></i>Game Summary
+      </button>
+      <button class="btn-espn" onclick="runEspn('roster','espn_result')">
+        <i class="bi bi-people me-1"></i>Roster
+      </button>
+    </div>
+    <div class="at-result" id="espn_result"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+function showResult(el, cls, html) {
+  el.className = 'at-result ' + cls;
+  el.style.display = 'block';
+  el.innerHTML = html;
+}
+
+function buildMeta(data) {
+  const metas = [];
+  if (data.status)             metas.push(`HTTP <strong>${data.status}</strong>`);
+  if (data.ms)                 metas.push(`<strong>${data.ms}ms</strong>`);
+  if (data.host)               metas.push(`Host <strong>${data.host}</strong>`);
+  if (data.credits_remaining != null) metas.push(`Credits remaining <strong>${data.credits_remaining}</strong>`);
+  if (data.credits_used != null)      metas.push(`Used this month <strong>${data.credits_used}</strong>`);
+  if (data.content_length)     metas.push(`Response <strong>${(data.content_length/1024).toFixed(1)} KB</strong>`);
+  return metas.length ? `<div class="at-meta">${metas.map(m=>`<span>${m}</span>`).join('')}</div>` : '';
+}
+
+async function postJSON(url, params) {
+  const body = new URLSearchParams(params);
+  body.append('csrf_token', CSRF);
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    const hint = resp.status === 400 ? 'CSRF or bad request' : `HTTP ${resp.status}`;
+    throw new Error(`Server error (${hint}) — check Admin → Logs`);
+  }
+  return resp.json();
+}
+
+async function runTest(provider, mode, resultId) {
+  const result    = document.getElementById(resultId);
+  const newKeyEl  = document.getElementById(provider + '_new_key');
+  const saveBtn   = document.getElementById(provider + '_save_btn');
+  const saveKeyEl = document.getElementById(provider + '_save_key');
+  const key = (mode === 'new' && newKeyEl) ? newKeyEl.value.trim() : '';
+
+  showResult(result, '', '<span class="spinner"></span>Testing…');
+
+  try {
+    const params = {};
+    if (key) params.key = key;
+    const data = await postJSON(`/admin/api-tester/test/${provider}`, params);
+    showResult(result, data.ok ? 'ok' : 'fail',
+      `<strong>${data.ok ? '✓' : '✗'} ${data.message}</strong>${buildMeta(data)}`);
+
+    if (saveBtn && saveKeyEl) {
+      if (data.ok && mode === 'new' && key) {
+        saveKeyEl.value = key;
+        saveBtn.style.display = 'inline-block';
+      } else if (mode === 'new') {
+        saveBtn.style.display = 'none';
+      }
+    }
+  } catch (e) {
+    showResult(result, 'fail', `<strong>✗ ${e.message || e}</strong>`);
+  }
+}
+
+async function runEspn(endpoint, resultId) {
+  const result = document.getElementById(resultId);
+  showResult(result, '', `<span class="spinner"></span>Testing ${endpoint}…`);
+  try {
+    const data = await postJSON('/admin/api-tester/test/espn', { endpoint });
+    showResult(result, data.ok ? 'ok' : 'fail',
+      `<strong>${data.ok ? '✓' : '✗'} ${data.message}</strong>${buildMeta(data)}`);
+  } catch(e) {
+    showResult(result, 'fail', `<strong>✗ ${e.message || e}</strong>`);
+  }
+}
+</script>
+{% endblock %}

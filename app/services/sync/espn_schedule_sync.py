@@ -24,10 +24,12 @@ ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nf
 _HEADERS    = {"User-Agent": "NFL-Parlay-Tracker/1.0"}
 _RATE_SLEEP = 0.2   # seconds between requests
 
-# (season_type_int, max_weeks, display_name)
+# (espn_seasontype, max_weeks, display_name)
+# ESPN: 1=Preseason  2=Regular Season  3=Postseason
 _SEASON_PHASES = [
+    (1,  4, "Preseason"),
     (2, 18, "Regular Season"),
-    (3,  4, "Postseason"),
+    (3,  5, "Postseason"),   # WC, Div, Conf, Pro Bowl, Super Bowl
 ]
 
 
@@ -49,11 +51,13 @@ def sync_espn_schedule(client=None) -> tuple[int, int, int]:
         logger.warning("No ESPN-linked teams found — run espn_teams sync first")
         return 0, 0, 0
 
-    # Current NFL season year: season that started in (current_year - 1) if we're in Jan-Aug,
-    # or current_year if Sept-Dec. Since we're in March 2026, last completed = 2025.
     now = datetime.now(timezone.utc)
+    # Last completed season (Jan-Aug → previous year; Sept-Dec → current year)
     nfl_year = now.year - 1 if now.month < 9 else now.year
-    years_to_sync = [nfl_year - 1, nfl_year]   # last 2 completed seasons
+    years_to_sync = [nfl_year - 1, nfl_year]
+    # In the offseason (Jan-Aug), also pull the upcoming season schedule
+    if now.month < 9:
+        years_to_sync.append(nfl_year + 1)
 
     for year in years_to_sync:
         for season_type, max_weeks, season_type_name in _SEASON_PHASES:

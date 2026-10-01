@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Settings — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<style>
+.st-card { background:#111820;border:1px solid rgba(255,255,255,.08);border-radius:10px;overflow:hidden;margin-bottom:1.25rem; }
+.st-head {
+  display:flex;align-items:center;gap:.75rem;padding:.75rem 1.1rem;
+  border-bottom:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.15);
+}
+.st-head-icon { font-size:1rem;width:1.4rem;text-align:center; }
+.st-head-title { font-family:'Bebas Neue',sans-serif;font-size:1.05rem;letter-spacing:.08em;color:#fff; }
+.st-body { padding:.25rem 0; }
+
+.st-row {
+  display:flex;align-items:center;gap:1rem;
+  padding:.65rem 1.1rem;border-bottom:1px solid rgba(255,255,255,.04);
+}
+.st-row:last-child { border-bottom:none; }
+.st-lbl   { flex:1;min-width:0; }
+.st-name  { font-weight:700;font-size:.85rem;color:#fff;line-height:1.2; }
+.st-desc  { font-size:.68rem;color:rgba(255,255,255,.28);margin-top:.1rem; }
+.st-ctrl  { flex:0 0 280px; }
+
+.pf-input,.pf-select {
+  background:rgba(0,34,68,.5)!important;border:1px solid rgba(105,190,40,.18)!important;
+  color:#fff!important;border-radius:6px!important;font-size:.83rem;width:100%;
+  padding:.35rem .6rem;
+}
+.pf-input:focus,.pf-select:focus {
+  border-color:#69BE28!important;box-shadow:0 0 0 2px rgba(105,190,40,.1)!important;outline:none;
+}
+.pf-select option { background:#0d1b2a; }
+
+.secret-wrap { position:relative; }
+.secret-eye {
+  position:absolute;right:.55rem;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;
+  font-size:.85rem;line-height:1;padding:.15rem;
+}
+.secret-eye:hover { color:#69BE28; }
+.secret-hint { font-size:.68rem;margin-top:.2rem; }
+.hint-set   { color:#4ade80; }
+.hint-unset { color:rgba(248,113,113,.7); }
+
+.ro-val {
+  font-size:.78rem;color:rgba(255,255,255,.3);font-family:'Barlow Condensed',sans-serif;
+  letter-spacing:.04em;padding:.35rem .5rem;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:6px;
+}
+</style>
+
+<div class="d-flex align-items-center gap-2 mb-1">
+  <i class="bi bi-sliders" style="font-size:1.3rem;color:#69BE28;"></i>
+  <h4 class="fw-bold mb-0">App Settings</h4>
+</div>
+<div class="mb-4" style="font-size:.7rem;color:rgba(255,255,255,.3);font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;">
+  All changes apply immediately and persist in the database
+</div>
+
+<form method="POST" action="{{ url_for('admin.settings') }}">
+
+{% for group in groups %}
+<div class="st-card mb-3">
+  <div class="st-head">
+    <span class="st-head-icon" style="color:{{ group.color }};"><i class="bi {{ group.icon }}"></i></span>
+    <span class="st-head-title">{{ group.title }}</span>
+  </div>
+  <div class="st-body">
+  {% for s in group.settings %}
+  {% set val   = values.get(s.key, s.default) %}
+  {% set kind  = s.type.split(':')[0] %}
+  {% set opts  = s.type.split(':')[1].split('|') if ':' in s.type else [] %}
+  {% set is_sensitive = s.get('sensitive', False) %}
+  <div class="st-row">
+    <div class="st-lbl">
+      <div class="st-name">{{ s.label }}</div>
+      <div class="st-desc">{{ s.desc }}</div>
+    </div>
+    <div class="st-ctrl">
+
+      {% if kind == 'secret' %}
+        <div class="secret-wrap">
+          <input type="password" name="{{ s.key }}" id="st_{{ s.key }}"
+                 class="pf-input" autocomplete="off"
+                 placeholder="Enter new key to update"
+                 style="padding-right:2.2rem;">
+          <button type="button" class="secret-eye" onclick="togglePw('st_{{ s.key }}')">
+            <i class="bi bi-eye" id="eye_{{ s.key }}"></i>
+          </button>
+        </div>
+        {% set placeholder_vals = ('', 'your-rapidapi-key-here', 'your-the-odds-api-key-here') %}
+        {% if val and val not in placeholder_vals %}
+          <div class="secret-hint hint-set">
+            <i class="bi bi-check-circle me-1"></i>Configured — {{ val[:8] }}•••••••• (blank = keep current)
+          </div>
+        {% else %}
+          <div class="secret-hint hint-unset">
+            <i class="bi bi-exclamation-circle me-1"></i>Not configured
+          </div>
+        {% endif %}
+
+      {% elif kind == 'bool' %}
+        <select name="{{ s.key }}" class="pf-select">
+          <option value="true"  {{ 'selected' if val in ('true','True','1') }}>Enabled</option>
+          <option value="false" {{ 'selected' if val not in ('true','True','1') }}>Disabled</option>
+        </select>
+
+      {% elif kind == 'select' %}
+        <select name="{{ s.key }}" class="pf-select">
+          {% for opt in opts %}
+          <option value="{{ opt }}" {{ 'selected' if val == opt }}>
+            {{ opt|upper if opt in ('debug','info','warning','error','critical') else opt|title }}
+          </option>
+          {% endfor %}
+        </select>
+
+      {% elif kind == 'int' %}
+        <input type="number" name="{{ s.key }}" value="{{ val }}"
+               class="pf-input" min="0">
+
+      {% else %}
+        <input type="text" name="{{ s.key }}" value="{{ val }}"
+               class="pf-input">
+      {% endif %}
+
+    </div>
+  </div>
+  {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
+{# ── Read-only info ── #}
+<div class="st-card mb-4">
+  <div class="st-head">
+    <span class="st-head-icon" style="color:rgba(255,255,255,.2);"><i class="bi bi-lock-fill"></i></span>
+    <span class="st-head-title" style="color:rgba(255,255,255,.4);">Environment-Only (not editable here)</span>
+  </div>
+  <div class="st-body">
+    {% for key, label in [('DATABASE_URL','Database URL'),('REDIS_URL','Redis URL'),('SECRET_KEY','Secret Key'),('UPLOAD_FOLDER','Upload Folder'),('LOG_DIR','Log Directory')] %}
+    <div class="st-row">
+      <div class="st-lbl">
+        <div class="st-name" style="color:rgba(255,255,255,.4);">{{ label }}</div>
+        <div class="st-desc">Managed via environment variable / docker-compose.yml</div>
+      </div>
+      <div class="st-ctrl">
+        <div class="ro-val">
+          {% if key == 'SECRET_KEY' %}••••••••••••••••
+          {% elif key == 'DATABASE_URL' %}{{ config.get(key, '—')[:40] }}…
+          {% else %}{{ config.get(key, '—') }}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="d-flex justify-content-end mb-5">
+  <button type="submit" class="btn fw-bold px-4"
+          style="background:rgba(105,190,40,.15);border:1px solid rgba(105,190,40,.35);
+                 color:#69BE28;font-size:.86rem;letter-spacing:.06em;">
+    <i class="bi bi-check2-circle me-1"></i>Save All Settings
+  </button>
+</div>
+
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePw(id) {
+  const inp = document.getElementById(id);
+  const eye = document.getElementById('eye_' + id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  eye.className = inp.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+</script>
+{% endblock %}

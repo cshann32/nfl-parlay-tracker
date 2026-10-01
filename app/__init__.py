@@ -189,6 +189,8 @@ def _start_scheduler(app: Flask) -> None:
     if app.config.get("SCHEDULER_ENABLED") and not app.config.get("TESTING"):
         from app.services.sync import run_full_sync
         interval_hours = app.config.get("SYNC_INTERVAL_HOURS", 24)
+
+        # Interval-based full sync
         scheduler.add_job(
             func=lambda: run_full_sync(app),
             trigger="interval",
@@ -196,9 +198,24 @@ def _start_scheduler(app: Flask) -> None:
             id="nfl_full_sync",
             replace_existing=True,
         )
+
+        # Sunday 11 PM ET — scores, stats, odds, auto-settle
+        from app.services.sync import run_weekly_stats_sync
+        scheduler.add_job(
+            func=lambda: run_weekly_stats_sync(app),
+            trigger="cron",
+            day_of_week="sun",
+            hour=23,
+            minute=0,
+            timezone="America/New_York",
+            id="weekly_stats_sync",
+            replace_existing=True,
+        )
+
         scheduler.start()
         logging.getLogger("nfl.app").info(
-            "Scheduler started", extra={"interval_hours": interval_hours}
+            "Scheduler started",
+            extra={"interval_hours": interval_hours, "weekly_job": "Sunday 23:00 ET"},
         )
 
 

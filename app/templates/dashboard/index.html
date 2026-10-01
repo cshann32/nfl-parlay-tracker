@@ -122,6 +122,44 @@
 </div>
 {% endif %}
 
+{# ── 12s Corner — Seahawks news ──────────────────────────────── #}
+{% if sea_news %}
+<div class="mb-4">
+  <div class="d-flex align-items-center justify-content-between mb-2">
+    <span class="section-label d-flex align-items-center gap-2">
+      <img src="{{ url_for('static', filename='img/seahawks_logo.png') }}"
+           alt="SEA" style="width:16px;height:16px;object-fit:contain;">
+      12s CORNER
+    </span>
+    <a href="{{ url_for('dashboard.news') }}" class="section-more-link">ALL SEAHAWKS NEWS →</a>
+  </div>
+  <div class="row g-3">
+    {% for a in sea_news %}
+    <div class="col-12 col-sm-6 col-lg-3">
+      <a href="{{ a.link }}" target="_blank" rel="noopener" class="news-card"
+         style="border-color:rgba(105,190,40,.15);">
+        {% if a.thumbnail %}
+        <div class="news-card-img" style="background-image:url('{{ a.thumbnail }}');"></div>
+        {% else %}
+        <div class="news-card-img news-card-img-placeholder"
+             style="background:rgba(0,34,68,.6);">
+          <img src="{{ url_for('static', filename='img/seahawks_logo.png') }}"
+               alt="" style="width:36px;height:36px;object-fit:contain;opacity:.2;">
+        </div>
+        {% endif %}
+        <div class="news-card-body">
+          <div class="news-card-title">{{ a.title }}</div>
+          {% if a.published_at %}
+          <div class="news-card-date"><i class="bi bi-clock me-1"></i>{{ a.published_at.strftime('%b %-d, %Y') }}</div>
+          {% endif %}
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {# ── Season State Banner ──────────────────────────────────────── #}
 <div class="mb-3 d-flex align-items-center gap-2">
   {% if season_state.state == "regular_season" %}

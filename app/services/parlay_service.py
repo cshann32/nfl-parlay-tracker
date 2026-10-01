@@ -330,6 +330,102 @@ def get_leg_count_breakdown(user_id: int) -> list[dict]:
     return result
 
 
+# ── Auto-settle ───────────────────────────────────────────────────────────────
+
+def auto_settle_legs_for_game(game_id: int) -> int:
+    """Settle all pending legs tied to a completed game. Returns count settled."""
+    import re
+    from app.models.parlay import LegType
+
+    game = Game.query.get(game_id)
+    if not game or game.home_score is None or game.away_score is None:
+        return 0
+
+    pending = ParlayLeg.query.filter_by(game_id=game_id, result=LegResult.PENDING).all()
+    if not pending:
+        return 0
+
+    home_name = (game.home_team.name or "").lower() if game.home_team else ""
+    home_abbr = (game.home_team.abbreviation or "").lower() if game.home_team else ""
+    away_name = (game.away_team.name or "").lower() if game.away_team else ""
+    away_abbr = (game.away_team.abbreviation or "").lower() if game.away_team else ""
+
+    settled = 0
+    for leg in pending:
+        pick = (leg.pick or "").strip().lower()
+        result = None
+
+        if leg.leg_type == LegType.MONEYLINE:
+            home_wins = game.home_score > game.away_score
+            tied = game.home_score == game.away_score
+            if _pick_mentions(pick, home_name, home_abbr):
+                result = LegResult.PUSH if tied else (LegResult.WON if home_wins else LegResult.LOST)
+            elif _pick_mentions(pick, away_name, away_abbr):
+                result = LegResult.PUSH if tied else (LegResult.WON if not home_wins else LegResult.LOST)
+
+        elif leg.leg_type == LegType.TOTAL:
+            total = game.home_score + game.away_score
+            m = re.search(r'(over|under)\s*([\d.]+)', pick)
+            if m:
+                direction, line = m.group(1), float(m.group(2))
+                if total == line:
+                    result = LegResult.PUSH
+                elif total > line:
+                    result = LegResult.WON if direction == "over" else LegResult.LOST
+                else:
+                    result = LegResult.WON if direction == "under" else LegResult.LOST
+
+        elif leg.leg_type == LegType.SPREAD:
+            # Pick text "Chiefs -3.5" → spread = -3.5; margin + spread > 0 means covered
+            m = re.search(r'([+-]?\d+\.?\d*)\s*$', pick)
+            if m:
+                spread = float(m.group(1))
+                if _pick_mentions(pick, home_name, home_abbr):
+                    margin = game.home_score - game.away_score
+                elif _pick_mentions(pick, away_name, away_abbr):
+                    margin = game.away_score - game.home_score
+                else:
+                    continue
+                net = margin + spread
+                result = LegResult.PUSH if net == 0 else (LegResult.WON if net > 0 else LegResult.LOST)
+
+        if result is not None:
+            leg.result = result
+            _recalculate_parlay_status(leg.parlay)
+            settled += 1
+
+    db.session.commit()
+    logger.info("Auto-settled %d legs for game_id=%d", settled, game_id)
+    return settled
+
+
+def auto_settle_all_pending() -> int:
+    """Settle pending legs for every completed game that has a final score."""
+    game_ids = (
+        db.session.query(ParlayLeg.game_id)
+        .join(Game, Game.id == ParlayLeg.game_id)
+        .filter(
+            ParlayLeg.game_id.isnot(None),
+            ParlayLeg.result == LegResult.PENDING,
+            Game.home_score.isnot(None),
+            Game.away_score.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    total = sum(auto_settle_legs_for_game(gid) for (gid,) in game_ids)
+    logger.info("Auto-settle sweep settled %d total legs", total)
+    return total
+
+
+def _pick_mentions(pick: str, team_name: str, team_abbr: str) -> bool:
+    if team_name and team_name in pick:
+        return True
+    if team_abbr and len(team_abbr) >= 2 and team_abbr in pick.split():
+        return True
+    return False
+
+
 # ── Private helpers ────────────────────────────────────────────────────────────
 
 def _get_parlay_for_user(parlay_id: int, user_id: int) -> Parlay:

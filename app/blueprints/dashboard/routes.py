@@ -15,11 +15,34 @@ logger = logging.getLogger("nfl.dashboard")
 _news_cache: dict = {}
 _NEWS_TTL = 900  # 15 minutes
 
-_ESPN_JSON_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news"
-_ESPN_RSS_URL  = "https://www.espn.com/espn/rss/nfl/news"
+_ESPN_JSON_URL  = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news"
+_ESPN_RSS_URL   = "https://www.espn.com/espn/rss/nfl/news"
+_SEA_ESPN_ID    = "26"   # Seattle Seahawks ESPN team ID (stored as espn_26 in DB)
 
 
-def _fetch_espn_json(limit: int = 25) -> list[dict]:
+def _parse_espn_articles(raw: list) -> list[dict]:
+    """Convert raw ESPN article dicts into the standard article shape."""
+    items = []
+    for a in raw:
+        imgs = a.get("images", [])
+        img = next((i for i in imgs if i.get("type") == "header"), imgs[0] if imgs else None)
+        pub = a.get("published") or ""
+        try:
+            published_at = datetime.fromisoformat(pub.replace("Z", "+00:00")) if pub else None
+        except (ValueError, TypeError):
+            published_at = None
+        items.append({
+            "title":        a.get("headline") or "",
+            "link":         (a.get("links") or {}).get("web", {}).get("href") or "#",
+            "description":  a.get("description") or "",
+            "pub_date":     pub[:25] if pub else "",
+            "thumbnail":    img.get("url") if img else None,
+            "published_at": published_at,
+        })
+    return items
+
+
+def _fetch_espn_json(limit: int = 40) -> list[dict]:
     """Fetch NFL news from ESPN's public JSON API (has real thumbnails, no key needed)."""
     cached = _news_cache.get("espn_json")
     if cached and (time.time() - cached[0]) < _NEWS_TTL:
@@ -30,29 +53,33 @@ def _fetch_espn_json(limit: int = 25) -> list[dict]:
                             headers={"User-Agent": "NFL-Parlay-Tracker/1.0"})
         resp.raise_for_status()
         data = resp.json()
-        items = []
-        for a in data.get("articles", []):
-            imgs = a.get("images", [])
-            # Prefer 'header' type image, fall back to first available
-            img = next((i for i in imgs if i.get("type") == "header"), imgs[0] if imgs else None)
-            pub = a.get("published") or ""
-            try:
-                from datetime import datetime, timezone
-                published_at = datetime.fromisoformat(pub.replace("Z", "+00:00")) if pub else None
-            except (ValueError, TypeError):
-                published_at = None
-            items.append({
-                "title":        a.get("headline") or "",
-                "link":         (a.get("links") or {}).get("web", {}).get("href") or "#",
-                "description":  a.get("description") or "",
-                "pub_date":     pub[:25] if pub else "",
-                "thumbnail":    img.get("url") if img else None,
-                "published_at": published_at,
-            })
+        items = _parse_espn_articles(data.get("articles", []))
         _news_cache["espn_json"] = (time.time(), items)
         return items
     except Exception as exc:
         logger.warning("ESPN JSON fetch failed", extra={"error": str(exc)})
+        return cached[1] if cached else []
+
+
+def _fetch_seahawks_news(limit: int = 20) -> list[dict]:
+    """Fetch Seahawks-specific news from ESPN using the team filter."""
+    cache_key = f"espn_team_{_SEA_ESPN_ID}"
+    cached = _news_cache.get(cache_key)
+    if cached and (time.time() - cached[0]) < _NEWS_TTL:
+        return cached[1]
+    try:
+        import requests
+        resp = requests.get(
+            _ESPN_JSON_URL, timeout=5,
+            params={"team": _SEA_ESPN_ID, "limit": limit},
+            headers={"User-Agent": "NFL-Parlay-Tracker/1.0"},
+        )
+        resp.raise_for_status()
+        items = _parse_espn_articles(resp.json().get("articles", []))
+        _news_cache[cache_key] = (time.time(), items)
+        return items
+    except Exception as exc:
+        logger.warning("Seahawks news fetch failed", extra={"error": str(exc)})
         return cached[1] if cached else []
 
 
@@ -259,8 +286,9 @@ def index():
     carousel_season = active_season if season_state["state"] == "offseason" else active_season
     season_predictions = get_season_predictions(season_year=carousel_season)
 
-    # Fetch a handful of headlines for the dashboard news strip
-    articles = _fetch_espn_json(limit=6)
+    # Fetch headlines for the dashboard news strips
+    articles    = _fetch_espn_json(limit=6)
+    sea_news    = _fetch_seahawks_news(limit=4)
 
     # Offseason extras: closing lines from the DB + countdown to next kickoff
     is_offseason = season_state["state"] == "offseason"
@@ -280,6 +308,7 @@ def index():
         season_predictions=season_predictions,
         season_state=season_state,
         articles=articles,
+        sea_news=sea_news,
         recent_odds=recent_odds,
         kickoff_iso=kickoff_iso,
         is_offseason=is_offseason,
@@ -289,14 +318,10 @@ def index():
 @dashboard_bp.route("/news")
 @login_required
 def news():
-    # Primary: ESPN JSON API (has real cover images, free, no key)
-    # Fallback: ESPN RSS (no images, but still current news)
-    espn = _fetch_espn_json(limit=25)
-    if espn:
-        articles = espn
-        source = "rss"  # display as "Live" since it's real-time ESPN data
-    else:
-        articles = _fetch_rss(_ESPN_RSS_URL)
-        source = "rss"
-
-    return render_template("dashboard/news.html", articles=articles, source=source)
+    espn = _fetch_espn_json(limit=40)
+    articles = espn or _fetch_rss(_ESPN_RSS_URL)
+    seahawks = _fetch_seahawks_news(limit=20)
+    return render_template("dashboard/news.html",
+                           articles=articles,
+                           seahawks=seahawks,
+                           source="rss")

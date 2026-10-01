@@ -345,3 +345,63 @@ def game_odds(game_id):
         "away_spread": float(o.away_spread) if o.away_spread else None,
         "over_under": float(o.over_under) if o.over_under else None,
     } for o in odds])
+
+
+@api_bp.route("/odds/suggestions")
+@login_required
+def odds_suggestions():
+    """Return simplified live odds for a game — used by the parlay form auto-fill."""
+    game_id = request.args.get("game_id", type=int)
+    if not game_id:
+        return jsonify({"found": False})
+
+    odds = (
+        Odds.query.filter_by(game_id=game_id)
+        .order_by(Odds.synced_at.desc())
+        .first()
+    )
+    if not odds:
+        return jsonify({"found": False})
+
+    game = Game.query.get(game_id)
+    if not game:
+        return jsonify({"found": False})
+
+    def _fmt_spread(v):
+        if v is None:
+            return None
+        f = float(v)
+        return f"+{f}" if f > 0 else str(f)
+
+    return jsonify({
+        "found": True,
+        "source": odds.source,
+        "home": {
+            "name": game.home_team.name if game.home_team else None,
+            "abbr": game.home_team.abbreviation if game.home_team else None,
+            "spread": float(odds.home_spread) if odds.home_spread is not None else None,
+            "spread_fmt": _fmt_spread(odds.home_spread),
+            "spread_odds": odds.spread_juice_home,
+            "moneyline": odds.home_moneyline,
+        },
+        "away": {
+            "name": game.away_team.name if game.away_team else None,
+            "abbr": game.away_team.abbreviation if game.away_team else None,
+            "spread": float(odds.away_spread) if odds.away_spread is not None else None,
+            "spread_fmt": _fmt_spread(odds.away_spread),
+            "spread_odds": odds.spread_juice_away,
+            "moneyline": odds.away_moneyline,
+        },
+        "total": float(odds.over_under) if odds.over_under is not None else None,
+        "over_odds": odds.over_juice,
+        "under_odds": odds.under_juice,
+    })
+
+
+@api_bp.route("/parlays/settle", methods=["POST"])
+@login_required
+def settle_parlays():
+    """Trigger auto-settle for all pending legs on completed games."""
+    from app.services.parlay_service import auto_settle_all_pending
+    settled = auto_settle_all_pending()
+    return jsonify({"settled": settled})

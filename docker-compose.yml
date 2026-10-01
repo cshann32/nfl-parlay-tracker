@@ -66,6 +66,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       UPLOAD_FOLDER: /app/uploads
       LOG_DIR: /app/logs
+      SESSION_COOKIE_SECURE: "true"
     volumes:
       - ./logs:/app/logs
       - ./uploads:/app/uploads
@@ -83,9 +84,11 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8080:80"
+      - "8443:443"
     volumes:
       - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
       - ./uploads:/app/uploads:ro
     depends_on:
       - app

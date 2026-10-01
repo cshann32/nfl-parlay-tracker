@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}The Commissioner — Beast Mode Tracker{% endblock %}
+{% block content %}
+
+<style>
+.cm-badge-icon {
+  display:inline-flex;align-items:center;justify-content:center;
+  width:2.6rem;height:2.6rem;border-radius:50%;
+  background:rgba(105,190,40,.15);border:1px solid rgba(105,190,40,.3);
+  font-size:1.3rem;color:#69BE28;flex-shrink:0;
+}
+.cm-title  { font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:.08em;color:#fff; }
+.cm-sub    { font-size:.72rem;color:rgba(255,255,255,.35);letter-spacing:.08em;text-transform:uppercase; }
+
+/* Summary pills */
+.cm-pill { padding:.3rem .85rem;border-radius:20px;font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase; }
+.p-fixed   { background:rgba(105,190,40,.15);border:1px solid rgba(105,190,40,.3);color:#69BE28; }
+.p-clean   { background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);color:#4ade80; }
+.p-warn    { background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);color:#fbbf24; }
+.p-error   { background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);color:#f87171; }
+
+/* Check rows */
+.cm-row {
+  display:flex;align-items:flex-start;gap:.85rem;padding:.75rem 1rem;
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.cm-row:last-child { border-bottom:none; }
+.cm-dot { width:.55rem;height:.55rem;border-radius:50%;flex-shrink:0;margin-top:.35rem; }
+.dot-fixed { background:#69BE28;box-shadow:0 0 5px rgba(105,190,40,.5); }
+.dot-clean { background:#4ade80;box-shadow:0 0 5px rgba(74,222,128,.4); }
+.dot-warn  { background:#fbbf24;box-shadow:0 0 5px rgba(251,191,36,.4); }
+.dot-error { background:#f87171;box-shadow:0 0 5px rgba(248,113,113,.5); }
+
+.cm-row-name { font-weight:700;font-size:.88rem;color:#fff;margin-bottom:.15rem; }
+.cm-row-desc { font-size:.72rem;color:rgba(255,255,255,.35); }
+.cm-row-action {
+  margin-top:.35rem;font-size:.72rem;padding:.2rem .6rem;border-radius:4px;
+  display:inline-block;
+}
+.action-warn  { background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2); }
+.action-error { background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.2); }
+.action-fix   { background:rgba(105,190,40,.08);color:rgba(105,190,40,.7);border:1px solid rgba(105,190,40,.15); }
+
+.cm-badge-count {
+  font-family:'Bebas Neue',sans-serif;font-size:.95rem;padding:.1rem .5rem;
+  border-radius:4px;white-space:nowrap;flex-shrink:0;
+}
+.bc-fixed { background:rgba(105,190,40,.2);color:#69BE28; }
+.bc-clean { background:rgba(74,222,128,.1);color:#4ade80; }
+.bc-warn  { background:rgba(251,191,36,.15);color:#fbbf24; }
+.bc-error { background:rgba(248,113,113,.15);color:#f87171; }
+
+/* Detail collapse */
+.cm-detail { margin-top:.5rem;padding:.5rem .6rem;background:rgba(0,0,0,.2);border-radius:6px; }
+.cm-detail-row { display:flex;gap:1rem;flex-wrap:wrap;padding:.2rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.75rem;color:rgba(255,255,255,.55); }
+.cm-detail-row:last-child { border-bottom:none; }
+.cm-detail-key { color:rgba(255,255,255,.25);font-size:.65rem;text-transform:uppercase;letter-spacing:.06em; }
+
+/* Run meta */
+.cm-meta { font-size:.7rem;color:rgba(255,255,255,.3);display:flex;gap:1.5rem;flex-wrap:wrap; }
+.cm-meta span { display:flex;align-items:center;gap:.3rem; }
+
+/* Config */
+.cm-cfg { background:#111820;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:1.25rem; }
+.cm-cfg-title { font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.08em;color:rgba(255,255,255,.5);margin-bottom:1rem; }
+.pf-label { font-family:'Barlow Condensed',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:.3rem; }
+.pf-input { background:rgba(0,34,68,.5)!important;border:1px solid rgba(105,190,40,.2)!important;color:#fff!important;border-radius:6px!important;font-size:.83rem; }
+.pf-input:focus { border-color:#69BE28!important;box-shadow:0 0 0 2px rgba(105,190,40,.1)!important; }
+</style>
+
+{# ── Header ── #}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <div class="cm-badge-icon"><i class="bi bi-shield-fill-check"></i></div>
+  <div>
+    <div class="cm-title">THE COMMISSIONER</div>
+    <div class="cm-sub">Auto-fixes safe issues · Flags what needs you · Logs everything</div>
+  </div>
+  <div class="ms-auto">
+    <form method="POST" action="{{ url_for('admin.commissioner_run') }}">
+      <button class="btn btn-sm fw-bold" style="background:rgba(105,190,40,.15);border:1px solid rgba(105,190,40,.35);color:#69BE28;letter-spacing:.06em;font-size:.8rem;">
+        <i class="bi bi-play-fill me-1"></i>Run Commissioner
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if last_run %}
+
+{# ── Run meta ── #}
+<div class="cm-meta mb-3">
+  <span><i class="bi bi-clock"></i> {{ last_run.run_at[:16]|replace('T',' ') }} UTC</span>
+  <span><i class="bi bi-person"></i> {{ last_run.triggered_by }}</span>
+  <span><i class="bi bi-stopwatch"></i> {{ last_run.duration_s }}s</span>
+</div>
+
+{# ── Summary bar ── #}
+<div class="d-flex flex-wrap gap-2 mb-4">
+  {% if last_run.total_fixed > 0 %}
+  <span class="cm-pill p-fixed"><i class="bi bi-wrench me-1"></i>{{ last_run.total_fixed }} rows auto-fixed</span>
+  {% endif %}
+  <span class="cm-pill p-clean"><i class="bi bi-check-circle me-1"></i>{{ last_run.clean_checks + last_run.fixed_checks }} passed</span>
+  {% if last_run.warnings > 0 %}
+  <span class="cm-pill p-warn"><i class="bi bi-exclamation-triangle me-1"></i>{{ last_run.warnings }} need attention</span>
+  {% endif %}
+  {% if last_run.errors > 0 %}
+  <span class="cm-pill p-error"><i class="bi bi-x-circle me-1"></i>{{ last_run.errors }} error{{ 's' if last_run.errors != 1 }}</span>
+  {% endif %}
+</div>
+
+{# ── Results ── #}
+<div style="font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:.5rem;">Audit Log</div>
+<div class="rounded-3 mb-4" style="background:#111820;border:1px solid rgba(255,255,255,.08);overflow:hidden;">
+  {% for r in last_run.results %}
+  {% set dot = 'fixed' if r.status == 'fixed' else ('clean' if r.status == 'clean' else ('warn' if r.status == 'warning' else 'error')) %}
+  {% set bc  = 'bc-' ~ dot %}
+  <div class="cm-row">
+    <div class="cm-dot dot-{{ dot }}"></div>
+    <div style="flex:1;min-width:0;">
+      <div class="cm-row-name">{{ r.name }}</div>
+      <div class="cm-row-desc">{{ r.description }}</div>
+
+      {% if r.status == 'fixed' %}
+        <div class="cm-row-action action-fix">
+          <i class="bi bi-check2 me-1"></i>Auto-fixed — {{ r.fixed }} row{{ 's' if r.fixed != 1 }} corrected
+          {% if r.human_action %} · {{ r.human_action }}{% endif %}
+        </div>
+
+      {% elif r.status in ('warning', 'error') and r.human_action %}
+        <div class="cm-row-action {{ 'action-warn' if r.status == 'warning' else 'action-error' }}">
+          <i class="bi bi-arrow-right me-1"></i>{{ r.human_action }}
+        </div>
+
+      {% elif r.fix_error %}
+        <div class="cm-row-action action-error">
+          <i class="bi bi-exclamation-circle me-1"></i>Fix error: {{ r.fix_error }}
+        </div>
+      {% endif %}
+
+      {% if r.detail %}
+      <div class="cm-detail mt-2">
+        {% for item in r.detail %}
+        <div class="cm-detail-row">
+          {% for k, v in item.items() %}
+          <span><span class="cm-detail-key">{{ k }}</span> {{ v }}</span>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="text-end" style="flex-shrink:0;">
+      {% if r.status == 'clean' %}
+        <span class="cm-badge-count bc-clean">OK</span>
+      {% elif r.status == 'fixed' %}
+        <span class="cm-badge-count bc-fixed">+{{ r.fixed }}</span>
+      {% else %}
+        <span class="cm-badge-count {{ bc }}">{{ r.found }}</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="rounded-3 p-4 text-center mb-4" style="background:#111820;border:1px solid rgba(255,255,255,.08);">
+  <i class="bi bi-shield-fill-check" style="font-size:2rem;color:rgba(105,190,40,.3);display:block;margin-bottom:.75rem;"></i>
+  <div style="color:rgba(255,255,255,.4);font-size:.88rem;">No run yet — click <strong style="color:#69BE28;">Run Commissioner</strong> to perform the first audit.</div>
+</div>
+{% endif %}
+
+<div class="d-flex align-items-center gap-2 mt-4 pt-2" style="border-top:1px solid rgba(255,255,255,.06);">
+  <i class="bi bi-sliders" style="color:rgba(255,255,255,.25);"></i>
+  <span style="font-size:.75rem;color:rgba(255,255,255,.3);">
+    Detection thresholds (stuck leg hours, odds freshness, score limit) are configured in
+    <a href="{{ url_for('admin.settings') }}"
+       style="color:#69BE28;text-decoration:none;font-weight:700;">
+      Admin → Settings → The Commissioner
+    </a>
+  </span>
+</div>
+
+{% endblock %}
